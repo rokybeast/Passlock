@@ -8,8 +8,8 @@ pub fn clr() {
 pub fn banner() {
     println!("{}", "╔═══════════════════════════════════════╗".bright_cyan());
     println!("{}", "║                                       ║".bright_cyan());
-    println!("{}     {}      {}", "║".bright_cyan(), "PASSLOCK v0.1".bright_white().bold(), "║".bright_cyan());
-    println!("{}   {}   {}", "║".bright_cyan(), "secure password manager".bright_black(), "║".bright_cyan());
+    println!("{}     {}      {}", "║".bright_cyan(), "PASSLOCK v0.1".bright_white().bold(), "               ║".bright_cyan());
+    println!("{}   {}   {}", "║".bright_cyan(), "secure password manager".bright_black(), "          ║".bright_cyan());
     println!("{}", "║                                       ║".bright_cyan());
     println!("{}", "╚═══════════════════════════════════════╝".bright_cyan());
     println!();
