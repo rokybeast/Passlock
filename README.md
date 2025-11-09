@@ -88,14 +88,9 @@ make test
 ## API Usage (Go Server)
 
 ```bash
-# List passwords
-curl -X POST http://localhost:8080/api \
-  -d '{"act":"list","pwd":"master123"}'
-
-# Search
-curl -X POST http://localhost:8080/api \
-  -d '{"act":"search","pwd":"master123","q":"github"}'
+make server
 ```
+Then you would have to go to HTTP://localhost:8080/
 
 ## Why Multi-Language?
 
