@@ -90,7 +90,7 @@ make test
 ```bash
 make server
 ```
-Then you would have to go to HTTP://localhost:8080/
+Then you would have to go to http://localhost:8080/
 
 ## Why Multi-Language?
 
