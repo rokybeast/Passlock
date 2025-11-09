@@ -50,7 +50,7 @@ int safe_cmp(const char *a, const char *b, size_t n) {
 
 #ifdef TEST_MODE
 
-void test_xor_buf() {
+void txb() {
     printf("Testing xor_buf... ");
     unsigned char data[] = {0xAA, 0xBB, 0xCC, 0xDD};
     unsigned char key[] = {0x12, 0x34};
@@ -65,7 +65,7 @@ void test_xor_buf() {
     }
 }
 
-void test_gen_rand() {
+void tgr() {
     printf("Testing gen_rand... ");
     unsigned char buf[16];
     
@@ -87,7 +87,7 @@ void test_gen_rand() {
     }
 }
 
-void test_hash_str() {
+void ths() {
     printf("Testing hash_str... ");
     unsigned long h1 = hash_str("hello");
     unsigned long h2 = hash_str("hello");
@@ -100,7 +100,7 @@ void test_hash_str() {
     }
 }
 
-void test_sec_zero() {
+void tsz() {
     printf("Testing sec_zero... ");
     char secret[] = "sensitive data";
     sec_zero(secret, sizeof(secret));
@@ -120,7 +120,7 @@ void test_sec_zero() {
     }
 }
 
-void test_safe_cmp() {
+void test_scmp() {
     printf("Testing safe_cmp... ");
     char a[] = "test123";
     char b[] = "test123";
@@ -139,11 +139,11 @@ void test_safe_cmp() {
 int main() {
     printf("Running crypto tests...\n\n");
     
-    test_xor_buf();
-    test_gen_rand();
-    test_hash_str();
-    test_sec_zero();
-    test_safe_cmp();
+    txb();
+    tgr();
+    ths();
+    tsz();
+    test_scmp();
     
     printf("\nAll tests completed!\n");
     return 0;
