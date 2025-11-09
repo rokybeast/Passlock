@@ -50,7 +50,6 @@ int safe_cmp(const char *a, const char *b, size_t n) {
 
 #ifdef TEST_MODE
 
-// Test functions
 void test_xor_buf() {
     printf("Testing xor_buf... ");
     unsigned char data[] = {0xAA, 0xBB, 0xCC, 0xDD};
@@ -71,7 +70,6 @@ void test_gen_rand() {
     unsigned char buf[16];
     
     if (gen_rand(buf, sizeof(buf)) == 0) {
-        // Check that we got some non-zero bytes (very basic check)
         int all_zero = 1;
         for (int i = 0; i < sizeof(buf); i++) {
             if (buf[i] != 0) {
