@@ -39,7 +39,7 @@ pub fn enc(data: &str, pwd: &str, salt: &str) -> Result<String, String> {
     
     let mut n_bytes = [0u8; 12];
     unsafe { gen_rand(n_bytes.as_mut_ptr(), 12) };
-    let n = Nonce::from_slice(&n_bytes);
+    let n = Nonce::from(n_bytes);
     
     let mut data_bytes = data.as_bytes().to_vec();
     
@@ -51,7 +51,7 @@ pub fn enc(data: &str, pwd: &str, salt: &str) -> Result<String, String> {
                 xor_key.as_ptr(), xor_key.len());
     }
     
-    let ct = c.encrypt(n, data_bytes.as_slice())
+    let ct = c.encrypt(&n, data_bytes.as_slice())
         .map_err(|e| e.to_string())?;
     
     let mut result = n_bytes.to_vec();
@@ -74,9 +74,10 @@ pub fn dec(enc_data: &str, pwd: &str, salt: &str) -> Result<String, String> {
     }
     
     let (n_bytes, ct) = data.split_at(12);
-    let n = Nonce::from_slice(n_bytes);
+    let n_bytes: [u8; 12] = n_bytes.try_into().map_err(|_| "invalid nonce")?;
+    let n = Nonce::from(n_bytes);
     
-    let mut pt = c.decrypt(n, ct)
+    let mut pt = c.decrypt(&n, ct)
         .map_err(|_| "decryption failed - wrong password?")?;
     
     let pwd_c = CString::new(pwd).unwrap();
