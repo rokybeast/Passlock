@@ -42,11 +42,9 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get home dir and vault path
 	home, _ := os.UserHomeDir()
 	vaultPath := filepath.Join(home, ".passlock.vault")
 
-	// check if vault exists
 	if _, err := os.Stat(vaultPath); os.IsNotExist(err) {
 		json.NewEncoder(w).Encode(Res{
 			Ok:  false,
@@ -54,15 +52,13 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-
-	// read vault manually
+	
 	data, err := os.ReadFile(vaultPath)
 	if err != nil {
 		json.NewEncoder(w).Encode(Res{Ok: false, Msg: "cant read vault"})
 		return
 	}
 
-	// for now just return vault info
 	parts := strings.SplitN(string(data), ":", 2)
 	if len(parts) != 2 {
 		json.NewEncoder(w).Encode(Res{Ok: false, Msg: "invalid vault format"})
