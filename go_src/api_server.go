@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,18 @@ import (
 	"strings"
 	"time"
 )
+
+type Req struct {
+	Act string `json:"act"`
+	Pwd string `json:"pwd"`
+	Q   string `json:"q,omitempty"`
+}
+
+type Res struct {
+	Ok   bool        `json:"ok"`
+	Msg  string      `json:"msg"`
+	Data interface{} `json:"data,omitempty"`
+}
 
 type Entry struct {
 	ID  string `json:"id"`
@@ -28,81 +41,189 @@ type Vault struct {
 
 var v *Vault
 
-func main() {
-	fmt.Println("PASSLOCK SERVER - http://localhost:8080")
-	http.HandleFunc("/", webUI)
-	http.HandleFunc("/api", apiHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func apiHandler(w http.ResponseWriter, r *http.Request) {
+func handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	if r.Method != "POST" {
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": false})
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	var req map[string]interface{}
-	json.NewDecoder(r.Body).Decode(&req)
-	act, _ := req["act"].(string)
+	if r.Method != "POST" {
+		json.NewEncoder(w).Encode(Res{Ok: false, Msg: "use POST"})
+		return
+	}
 
-	switch act {
+	var req Req
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(Res{Ok: false, Msg: "invalid json"})
+		return
+	}
+
+	home, _ := os.UserHomeDir()
+	vaultPath := filepath.Join(home, ".passlock.vault")
+
+	if _, err := os.Stat(vaultPath); os.IsNotExist(err) {
+		json.NewEncoder(w).Encode(Res{
+			Ok:  false,
+			Msg: "no vault found - create one with CLI first",
+		})
+		return
+	}
+
+	switch req.Act {
 	case "unlock":
-		home, _ := os.UserHomeDir()
-		data, err := os.ReadFile(filepath.Join(home, ".passlock.vault"))
+		data, err := os.ReadFile(vaultPath)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "no vault"})
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "cant read vault"})
 			return
 		}
+
 		parts := strings.SplitN(string(data), ":", 2)
+		if len(parts) != 2 {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "invalid vault format"})
+			return
+		}
+
 		v = &Vault{E: []Entry{}, S: parts[0]}
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true})
+		json.NewEncoder(w).Encode(Res{Ok: true, Msg: "vault unlocked"})
 
 	case "list":
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "data": v.E})
+		if v == nil {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "vault not unlocked"})
+			return
+		}
+		json.NewEncoder(w).Encode(Res{Ok: true, Data: v.E})
 
 	case "add":
+		if v == nil {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "vault not unlocked"})
+			return
+		}
+
+		var addReq struct {
+			Name string `json:"name"`
+			User string `json:"user"`
+			Pass string `json:"pass"`
+			Url  string `json:"url,omitempty"`
+			Note string `json:"note,omitempty"`
+		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "failed to read request"})
+			return
+		}
+
+		if err := json.Unmarshal(body, &addReq); err != nil {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "invalid add request"})
+			return
+		}
+
+		if addReq.Name == "" || addReq.User == "" || addReq.Pass == "" {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "name, user and pass required"})
+			return
+		}
+
 		e := Entry{
 			ID: fmt.Sprintf("%d", time.Now().UnixNano()),
-			N:  req["name"].(string),
-			U:  req["user"].(string),
-			P:  req["pass"].(string),
+			N:  addReq.Name,
+			U:  addReq.User,
+			P:  addReq.Pass,
 			T:  uint64(time.Now().Unix()),
 		}
-		if url, ok := req["url"].(string); ok && url != "" {
-			e.Url = url
+		if addReq.Url != "" {
+			e.Url = addReq.Url
 		}
-		if nt, ok := req["note"].(string); ok && nt != "" {
-			e.Nt = nt
+		if addReq.Note != "" {
+			e.Nt = addReq.Note
 		}
 		v.E = append(v.E, e)
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true})
+		json.NewEncoder(w).Encode(Res{Ok: true, Msg: "entry added"})
 
 	case "delete":
-		id := req["id"].(string)
+		if v == nil {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "vault not unlocked"})
+			return
+		}
+
+		var delReq struct {
+			ID string `json:"id"`
+		}
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "failed to read request"})
+			return
+		}
+
+		if err := json.Unmarshal(body, &delReq); err != nil {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "invalid delete request"})
+			return
+		}
+
 		newE := []Entry{}
 		for _, e := range v.E {
-			if e.ID != id {
+			if e.ID != delReq.ID {
 				newE = append(newE, e)
 			}
 		}
 		v.E = newE
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true})
+		json.NewEncoder(w).Encode(Res{Ok: true, Msg: "entry deleted"})
 
 	case "gen":
 		l := 16
-		if ln, ok := req["len"].(float64); ok {
-			l = int(ln)
+		var genReq struct {
+			Len float64 `json:"len"`
 		}
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err == nil {
+			json.Unmarshal(body, &genReq)
+			if genReq.Len > 0 {
+				l = int(genReq.Len)
+			}
+		}
+
+		if l < 4 {
+			l = 4
+		}
+		if l > 64 {
+			l = 64
+		}
+
 		chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
 		pwd := make([]byte, l)
 		for i := range pwd {
 			pwd[i] = chars[time.Now().UnixNano()%int64(len(chars))]
 			time.Sleep(time.Nanosecond)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "data": string(pwd)})
+		json.NewEncoder(w).Encode(Res{Ok: true, Data: string(pwd)})
+
+	default:
+		data, err := os.ReadFile(vaultPath)
+		if err != nil {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "cant read vault"})
+			return
+		}
+
+		parts := strings.SplitN(string(data), ":", 2)
+		if len(parts) != 2 {
+			json.NewEncoder(w).Encode(Res{Ok: false, Msg: "invalid vault format"})
+			return
+		}
+
+		json.NewEncoder(w).Encode(Res{
+			Ok:  true,
+			Msg: "vault found (use unlock to access data)",
+			Data: map[string]string{
+				"salt":      parts[0],
+				"encrypted": fmt.Sprintf("%d bytes", len(parts[1])),
+				"note":      "unlock vault to manage passwords",
+			},
+		})
 	}
 }
 
@@ -332,4 +453,26 @@ func webUI(w http.ResponseWriter, r *http.Request) {
 </html>`
 
 	fmt.Fprint(w, html)
+}
+
+func banner() {
+	fmt.Println("╔═══════════════════════════════════════╗")
+	fmt.Println("║                                       ║")
+	fmt.Println("║       PASSLOCK API SERVER             ║")
+	fmt.Println("║       listening on :8080              ║")
+	fmt.Println("║                                       ║")
+	fmt.Println("╚═══════════════════════════════════════╝")
+}
+
+func main() {
+	banner()
+
+	http.HandleFunc("/", webUI)
+	http.HandleFunc("/api", handle)
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	})
+
+	log.Println("→ server started")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
