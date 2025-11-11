@@ -11,7 +11,7 @@ fn main() {
     ui::clr();
     ui::banner();
     
-    let pwd = if storage::vault_exists() {
+    let pwd = if storage::vt_exi() {
         ui::info("vault found - enter master password");
         ui::sec_inp("password:")
     } else {
@@ -27,7 +27,7 @@ fn main() {
         let salt = crypto::gen_salt();
         let v = Vault::new(salt);
         
-        if let Err(e) = storage::save_vault(&v, &p1) {
+        if let Err(e) = storage::svv(&v, &p1) {
             ui::err(&format!("failed to create vault: {}", e));
             return;
         }
@@ -36,7 +36,7 @@ fn main() {
         p1
     };
     
-    let mut v = match storage::load_vault(&pwd) {
+    let mut v = match storage::ld_vt(&pwd) {
         Ok(vault) => {
             ui::ok("vault unlocked");
             vault
@@ -55,11 +55,11 @@ fn main() {
         let choice = ui::inp("choice:");
         
         match choice.as_str() {
-            "1" => list_all(&v),
-            "2" => add_entry(&mut v, &pwd),
+            "1" => ls_all(&v),
+            "2" => add_en(&mut v, &pwd),
             "3" => search(&v),
-            "4" => gen_password(),
-            "5" => delete_entry(&mut v, &pwd),
+            "4" => gen_pwd(),
+            "5" => del_en(&mut v, &pwd),
             "0" => {
                 ui::ok("goodbye");
                 break;
@@ -71,7 +71,7 @@ fn main() {
     }
 }
 
-fn list_all(v: &Vault) {
+fn ls_all(v: &Vault) {
     ui::clr();
     ui::banner();
     ui::info(&format!("total entries: {}", v.e.len()));
@@ -96,7 +96,7 @@ fn list_all(v: &Vault) {
     }
 }
 
-fn add_entry(v: &mut Vault, pwd: &str) {
+fn add_en(v: &mut Vault, pwd: &str) {
     ui::clr();
     ui::banner();
     ui::info("add new password");
@@ -130,7 +130,7 @@ fn add_entry(v: &mut Vault, pwd: &str) {
     
     v.e.push(e);
     
-    if let Err(e) = storage::save_vault(v, pwd) {
+    if let Err(e) = storage::svv(v, pwd) {
         ui::err(&format!("failed to save: {}", e));
     } else {
         ui::ok("password saved");
@@ -173,7 +173,7 @@ fn search(v: &Vault) {
     }
 }
 
-fn gen_password() {
+fn gen_pwd() {
     ui::clr();
     ui::banner();
     ui::info("password generator");
@@ -189,7 +189,7 @@ fn gen_password() {
     println!();
 }
 
-fn delete_entry(v: &mut Vault, pwd: &str) {
+fn del_en(v: &mut Vault, pwd: &str) {
     ui::clr();
     ui::banner();
     ui::info("delete password");
@@ -209,12 +209,12 @@ fn delete_entry(v: &mut Vault, pwd: &str) {
     
     if let Ok(idx) = choice.parse::<usize>() {
         if idx > 0 && idx <= v.e.len() {
-            let removed = v.e.remove(idx - 1);
+            let rem = v.e.remove(idx - 1);
             
-            if let Err(e) = storage::save_vault(v, pwd) {
+            if let Err(e) = storage::svv(v, pwd) {
                 ui::err(&format!("failed to save: {}", e));
             } else {
-                ui::ok(&format!("deleted '{}'", removed.n));
+                ui::ok(&format!("deleted '{}'", rem.n));
             }
         } else {
             ui::err("invalid number");

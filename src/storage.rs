@@ -3,38 +3,36 @@ use crate::models::Vault;
 use std::fs;
 use std::path::PathBuf;
 
-pub fn get_vault_path() -> PathBuf {
+pub fn gtv_path() -> PathBuf {
     let mut p = dirs::home_dir().expect("cant find home");
     p.push(".passlock.vault");
     p
 }
 
-pub fn get_temp_path() -> PathBuf {
+pub fn gtp_path() -> PathBuf {
     let mut p = dirs::home_dir().expect("cant find home");
     p.push(".passlock.temp");
     p
 }
 
-pub fn save_vault(v: &Vault, pwd: &str) -> Result<(), String> {
+pub fn svv(v: &Vault, pwd: &str) -> Result<(), String> {
     let j = serde_json::to_string(v).map_err(|e| e.to_string())?;
-    let enc_data = enc(&j, pwd, &v.s)?;
+    let enc_d = enc(&j, pwd, &v.s)?;
     
-    // format: SALT:ENCRYPTED_DATA
-    let final_data = format!("{}:{}", v.s, enc_data);
+    let final_d = format!("{}:{}", v.s, enc_d);
     
-    let p = get_vault_path();
-    fs::write(p, final_data).map_err(|e| e.to_string())?;
+    let p = gtv_path();
+    fs::write(p, final_d).map_err(|e| e.to_string())?;
     
-    // also save decrypted temp file for web server
-    let temp_p = get_temp_path();
-    let temp_data = serde_json::to_string(v).map_err(|e| e.to_string())?;
-    fs::write(temp_p, temp_data).map_err(|e| e.to_string())?;
+    let temp_p = gtp_path();
+    let tempd = serde_json::to_string(v).map_err(|e| e.to_string())?;
+    fs::write(temp_p, tempd).map_err(|e| e.to_string())?;
     
     Ok(())
 }
 
-pub fn load_vault(pwd: &str) -> Result<Vault, String> {
-    let p = get_vault_path();
+pub fn ld_vt(pwd: &str) -> Result<Vault, String> {
+    let p = gtv_path();
     
     if !p.exists() {
         return Err("no vault found".into());
@@ -42,27 +40,24 @@ pub fn load_vault(pwd: &str) -> Result<Vault, String> {
     
     let data = fs::read_to_string(p).map_err(|e| e.to_string())?;
     
-    // split salt and encrypted data
     let parts: Vec<&str> = data.splitn(2, ':').collect();
     if parts.len() != 2 {
         return Err("invalid vault format".into());
     }
     
     let salt = parts[0];
-    let enc_data = parts[1];
+    let enc_d = parts[1];
     
-    // decrypt
-    let dec_data = crate::crypto::dec(enc_data, pwd, salt)?;
+    let dec_data = crate::crypto::dec(enc_d, pwd, salt)?;
     let v: Vault = serde_json::from_str(&dec_data).map_err(|e| e.to_string())?;
     
-    // save decrypted temp file for web server
-    let temp_p = get_temp_path();
-    let temp_data = serde_json::to_string(&v).map_err(|e| e.to_string())?;
-    fs::write(temp_p, temp_data).ok(); // ignore errors
+    let temp_p = gtp_path();
+    let tempd = serde_json::to_string(&v).map_err(|e| e.to_string())?;
+    fs::write(temp_p, tempd).ok();
     
     Ok(v)
 }
 
-pub fn vault_exists() -> bool {
-    get_vault_path().exists()
+pub fn vt_exi() -> bool {
+    gtv_path().exists()
 }

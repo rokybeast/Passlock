@@ -19,7 +19,7 @@ pub fn gen_salt() -> String {
     SaltString::generate(&mut OsRng).to_string()
 }
 
-pub fn derive_key(pwd: &str, salt: &str) -> Result<[u8; 32], String> {
+pub fn der_k(pwd: &str, salt: &str) -> Result<[u8; 32], String> {
     let s = SaltString::from_b64(salt).map_err(|e| e.to_string())?;
     let h = Argon2::default()
         .hash_password(pwd.as_bytes(), &s)
@@ -27,14 +27,14 @@ pub fn derive_key(pwd: &str, salt: &str) -> Result<[u8; 32], String> {
     
     let hash_str = h.hash.ok_or("no hash")?;
     let mut k = [0u8; 32];
-    let decoded = hash_str.as_bytes();
-    let len = decoded.len().min(32);
-    k[..len].copy_from_slice(&decoded[..len]);
+    let dcd = hash_str.as_bytes();
+    let len = dcd.len().min(32);
+    k[..len].copy_from_slice(&dcd[..len]);
     Ok(k)
 }
 
 pub fn enc(data: &str, pwd: &str, salt: &str) -> Result<String, String> {
-    let k = derive_key(pwd, salt)?;
+    let k = der_k(pwd, salt)?;
     let c = Aes256Gcm::new(&k.into());
     
     let mut n_bytes = [0u8; 12];
@@ -45,10 +45,10 @@ pub fn enc(data: &str, pwd: &str, salt: &str) -> Result<String, String> {
     
     let pwd_c = CString::new(pwd).unwrap();
     let h = unsafe { hash_str(pwd_c.as_ptr()) };
-    let xor_key = h.to_le_bytes();
+    let xor_k = h.to_le_bytes();
     unsafe {
         xor_buf(data_bytes.as_mut_ptr(), data_bytes.len(), 
-                xor_key.as_ptr(), xor_key.len());
+                xor_k.as_ptr(), xor_k.len());
     }
     
     let ct = c.encrypt(&n, data_bytes.as_slice())
@@ -63,7 +63,7 @@ pub fn enc(data: &str, pwd: &str, salt: &str) -> Result<String, String> {
 }
 
 pub fn dec(enc_data: &str, pwd: &str, salt: &str) -> Result<String, String> {
-    let k = derive_key(pwd, salt)?;
+    let k = der_k(pwd, salt)?;
     let c = Aes256Gcm::new(&k.into());
     
     let data = general_purpose::STANDARD.decode(enc_data)
@@ -82,10 +82,10 @@ pub fn dec(enc_data: &str, pwd: &str, salt: &str) -> Result<String, String> {
     
     let pwd_c = CString::new(pwd).unwrap();
     let h = unsafe { hash_str(pwd_c.as_ptr()) };
-    let xor_key = h.to_le_bytes();
+    let xor_k = h.to_le_bytes();
     unsafe {
         xor_buf(pt.as_mut_ptr(), pt.len(), 
-                xor_key.as_ptr(), xor_key.len());
+                xor_k.as_ptr(), xor_k.len());
     }
     
     unsafe { sec_zero(k.as_ptr() as *mut libc::c_void, k.len()) };
@@ -94,7 +94,7 @@ pub fn dec(enc_data: &str, pwd: &str, salt: &str) -> Result<String, String> {
 }
 
 pub fn gen_pwd(len: usize) -> String {
-    const CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    const CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"; //needs more
     let mut r = rand::thread_rng();
     (0..len)
         .map(|_| {
