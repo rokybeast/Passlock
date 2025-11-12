@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -176,11 +177,49 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "data": string(pwd)})
 
+	case "save":
+		if v == nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "not unlocked"})
+			return
+		}
+
+		tempD, err := json.Marshal(v)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "failed to serialize vault"})
+			return
+		}
+
+		if err := os.WriteFile(tempP, tempD, 0600); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "failed to write temp file"})
+			return
+		}
+
+		wd, err := os.Getwd()
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "failed to get working directory"})
+			return
+		}
+
+		cmd := exec.Command("cargo", "run", "--release", "--", "sync", ms_pwd)
+		cmd.Dir = wd
+		output, err := cmd.CombinedOutput()
+
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"ok":  false,
+				"msg": fmt.Sprintf("failed to save: %s", string(output)),
+			})
+			return
+		}
+
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "msg": "saved to vault"})
+
 	default:
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "unknown action"})
 	}
 
 	_ = body
+
 }
 
 func webUI(w http.ResponseWriter, r *http.Request) {
@@ -253,6 +292,7 @@ func webUI(w http.ResponseWriter, r *http.Request) {
                         <input type="text" id="qr" class="srch" placeholder="search..." oninput="sr()">
                         <button onclick="sa()">add</button>
                         <button onclick="sg()" class="sc">generate</button>
+                        <button onclick="sv()">save to vault</button>
                         <button onclick="lo()" class="dg">logout</button>
                     </div>
                     <div id="ms"></div>
@@ -387,6 +427,14 @@ func webUI(w http.ResponseWriter, r *http.Request) {
                     const d=await ap('gen',{len:l});
                     if(d.ok){
                         document.getElementById('go').innerHTML='<div class="ms ok"><strong>generated:</strong><br><span class="vl" onclick="cp(\''+d.data.replace(/'/g,"\\'")+'\')" style="font-size:1.05em;margin-top:7px;display:block">'+d.data+'</span></div>';
+                    }
+                }
+                async function sv(){
+                    const d=await ap('save');
+                    if(d.ok){
+                        sm('ms','changes saved to vault permanently','ok');
+                    }else{
+                        sm('ms',d.msg||'save failed','er');
                     }
                 }
                 function cp(t){

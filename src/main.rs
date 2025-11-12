@@ -8,6 +8,25 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use colored::Colorize;
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() >= 3 && args[1] == "sync" {
+        let pwd = &args[2];
+        
+        let temp_path = storage::gtp_path();
+        if let Ok(data) = std::fs::read_to_string(&temp_path) {
+            if let Ok(vault) = serde_json::from_str::<Vault>(&data) {
+                if let Err(e) = storage::svv(&vault, pwd) {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+                println!("✓ synced to vault");
+                std::process::exit(0);
+            }
+        }
+        eprintln!("Error: failed to read temp file");
+        std::process::exit(1);
+    }
+    
     ui::clr();
     ui::banner();
     
