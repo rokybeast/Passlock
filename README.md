@@ -39,11 +39,14 @@ password-manager/
 ├── go_src/
 │   └── api_server.go
 └── src/
-    ├── main.rs
-    ├── crypto.rs
-    ├── storage.rs
-    ├── ui.rs
-    └── models.rs
+│   ├── main.rs
+│   ├── crypto.rs
+│   ├── storage.rs
+│   ├── ui.rs
+│   └── models.rs
+│
+└── web/
+    └── index.html
 ```
 
 ## Build & Run
