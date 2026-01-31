@@ -10,6 +10,33 @@ use colored::Colorize;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     
+    if args.len() >= 3 && args[1] == "create" {
+        let pwd = &args[2];
+        
+        if storage::vt_exi() {
+            eprintln!("Error: vault already exists");
+            std::process::exit(1);
+        }
+        
+        let salt = crypto::gen_salt();
+        let v = Vault::new(salt);
+        
+        match storage::svv(&v, pwd) {
+            Ok(_) => {
+                let temp_path = storage::gtp_path();
+                if let Ok(json) = serde_json::to_string(&v) {
+                    let _ = std::fs::write(&temp_path, json);
+                }
+                println!("✓ vault created");
+                std::process::exit(0);
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
+    
     if args.len() >= 3 && args[1] == "unlock" {
         let pwd = &args[2];
         

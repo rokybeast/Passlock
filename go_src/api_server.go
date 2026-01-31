@@ -54,6 +54,57 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	act, _ := req["act"].(string)
 
 	switch act {
+	case "check":
+		exists := false
+		if _, err := os.Stat(vt_path); err == nil {
+			exists = true
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "exists": exists})
+
+	case "create":
+		pwd, _ := req["pwd"].(string)
+		confirm, _ := req["confirm"].(string)
+
+		if pwd == "" || confirm == "" {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "password and confirmation required"})
+			return
+		}
+
+		if pwd != confirm {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "passwords don't match"})
+			return
+		}
+
+		if len(pwd) < 4 {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "password too short (min 4 chars)"})
+			return
+		}
+
+		if _, err := os.Stat(vt_path); err == nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "vault already exists"})
+			return
+		}
+
+		wd, err := os.Getwd()
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "failed to get working directory"})
+			return
+		}
+
+		cmd := exec.Command("cargo", "run", "--release", "--", "create", pwd)
+		cmd.Dir = wd
+		err = cmd.Run()
+
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"ok":  false,
+				"msg": "failed to create vault",
+			})
+			return
+		}
+
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "msg": "vault created successfully"})
+
 	case "unlock":
 		pwd, _ := req["pwd"].(string)
 		if pwd == "" {
@@ -276,16 +327,35 @@ func webUI(w http.ResponseWriter, r *http.Request) {
                 .ms{padding:11px;margin:9px 0;border-left:4px solid;border-radius:6px;font-size:14px}
                 .ms.ok{border-color:#a6e3a1;color:#a6e3a1;background:rgba(166,227,161,.08)}
                 .ms.er{border-color:#f38ba8;color:#f38ba8;background:rgba(243,139,168,.08)}
+                .ms.inf{border-color:#89b4fa;color:#89b4fa;background:rgba(137,180,250,.08)}
                 .em{text-align:center;padding:35px;color:#6c7086;font-size:15px}
+                .lk{color:#89b4fa;text-decoration:underline;cursor:pointer}
+                .lk:hover{color:#a6c8ff}
             </style>
         </head>
         <body>
             <div class="c">
                 <div class="hd">
                     <h1>PASSLOCK</h1>
-                    <p>Password Manager</p>
+                    <p>PASSWORD MANAGER</p>
                 </div>
-                <div id="lg" class="bx">
+                <div id="nv" class="bx hid">
+                    <h2>no vault found</h2>
+                    <div class="ms inf">no vault exists yet. you can create one below or via CLI.</div>
+                    <button onclick="shc()">create vault here</button>
+                    <div style="text-align:center;margin-top:15px;color:#6c7086;font-size:13px">
+                        or run <code style="background:#313244;padding:3px 7px;border-radius:4px;color:#a6e3a1">cargo run --release</code> in CLI
+                    </div>
+                </div>
+                <div id="cv" class="bx hid">
+                    <h2>create vault</h2>
+                    <input type="password" id="np" placeholder="master password">
+                    <input type="password" id="cp" placeholder="confirm password" onkeypress="if(event.key==='Enter')cr()">
+                    <button onclick="cr()">create vault</button>
+                    <button onclick="bk()" class="sc">back</button>
+                    <div id="cm"></div>
+                </div>
+                <div id="lg" class="bx hid">
                     <h2>unlock vault</h2>
                     <input type="password" id="pw" placeholder="master password" onkeypress="if(event.key==='Enter')ul()">
                     <button onclick="ul()">unlock</button>
@@ -336,6 +406,50 @@ func webUI(w http.ResponseWriter, r *http.Request) {
                         return await r.json();
                     }catch(e){
                         return{ok:false,msg:'network error'};
+                    }
+                }
+                async function chk(){
+                    const d=await ap('check');
+                    if(d.ok){
+                        if(d.exists){
+                            document.getElementById('lg').classList.remove('hid');
+                        }else{
+                            document.getElementById('nv').classList.remove('hid');
+                        }
+                    }
+                }
+                function shc(){
+                    document.getElementById('nv').classList.add('hid');
+                    document.getElementById('cv').classList.remove('hid');
+                }
+                function bk(){
+                    document.getElementById('cv').classList.add('hid');
+                    document.getElementById('nv').classList.remove('hid');
+                }
+                async function cr(){
+                    const np=document.getElementById('np').value;
+                    const cp=document.getElementById('cp').value;
+                    if(!np||!cp){
+                        sm('cm','enter password and confirmation','er');
+                        return;
+                    }
+                    if(np!==cp){
+                        sm('cm','passwords don\'t match','er');
+                        return;
+                    }
+                    if(np.length<4){
+                        sm('cm','password too short (min 4 chars)','er');
+                        return;
+                    }
+                    const d=await ap('create',{pwd:np,confirm:cp});
+                    if(d.ok){
+                        sm('cm','vault created! redirecting...','ok');
+                        setTimeout(()=>{
+                            document.getElementById('cv').classList.add('hid');
+                            document.getElementById('lg').classList.remove('hid');
+                        },1500);
+                    }else{
+                        sm('cm',d.msg||'creation failed','er');
                     }
                 }
                 async function ul(){
@@ -457,6 +571,7 @@ func webUI(w http.ResponseWriter, r *http.Request) {
                     document.getElementById('ap').classList.add('hid');
                     document.getElementById('pw').value='';
                 }
+                chk();
             </script>
         </body>
         </html>`

@@ -1,4 +1,4 @@
-# PASSLOCK - Multi-Language Password Manager
+# PASSLOCK - Flexible Password Manager
 
 A secure password manager built with **Rust**, **C**, and **Go**.
 
