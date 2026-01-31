@@ -53,12 +53,12 @@
     <div class="c">
         <div class="hd">
             <h1>PASSLOCK</h1>
-            <p>password manager</p>
+            <p>PASSWORD MANAGER</p>
         </div>
         <div id="nv" class="bx hid">
-            <h2>no vault found</h2>
-            <div class="ms inf">no vault exists yet. you can create one below or via CLI.</div>
-            <button onclick="shc()">create vault here</button>
+            <h2>No Vault Found</h2>
+            <div class="ms inf">No vault exists yet. You can create one using the CLI.</div>
+            <button onclick="shc()">Create Vault Here</button>
             <div style="text-align:center;margin-top:15px;color:#6c7086;font-size:13px">
                 or run <code style="background:#313244;padding:3px 7px;border-radius:4px;color:#a6e3a1">cargo run --release</code> in CLI
             </div>
@@ -72,18 +72,18 @@
             <div id="cm"></div>
         </div>
         <div id="lg" class="bx hid">
-            <h2>unlock vault</h2>
+            <h2>UNLOCK VAULT</h2>
             <input type="password" id="pw" placeholder="master password" onkeypress="if(event.key==='Enter')ul()">
-            <button onclick="ul()">unlock</button>
+            <button onclick="ul()">UNLOCK</button>
             <div id="lm"></div>
         </div>
         <div id="ap" class="hid">
             <div class="ct">
                 <input type="text" id="qr" class="srch" placeholder="search..." oninput="sr()">
-                <button onclick="sa()">add</button>
-                <button onclick="sg()" class="sc">generate</button>
-                <button onclick="sv()">save to vault</button>
-                <button onclick="lo()" class="dg">logout</button>
+                <button onclick="sa()">ADD</button>
+                <button onclick="sg()" class="sc">GENERATE</button>
+                <button onclick="sv()">SAVE TO VAULT</button>
+                <button onclick="lo()" class="dg">LOGOUT</button>
             </div>
             <div id="ms"></div>
             <div id="es"></div>
@@ -91,23 +91,23 @@
     </div>
     <div id="am" class="md hid" onclick="if(event.target===this)hd('am')">
         <div class="mb">
-            <div class="mh">add password</div>
-            <input type="text" id="nm" placeholder="name">
-            <input type="text" id="us" placeholder="username">
-            <input type="text" id="ps" placeholder="password">
-            <input type="text" id="ur" placeholder="url (optional)">
-            <textarea id="nt" placeholder="notes (optional)" rows="3"></textarea>
-            <button onclick="ad()">save</button>
-            <button onclick="hd('am')" class="sc">cancel</button>
+            <div class="mh">ADD PASSWORD</div>
+            <input type="text" id="nm" placeholder="Name">
+            <input type="text" id="us" placeholder="Username">
+            <input type="text" id="ps" placeholder="Password">
+            <input type="text" id="ur" placeholder="URL (optional)">
+            <textarea id="nt" placeholder="NOTES (optional)" rows="3"></textarea>
+            <button onclick="ad()">SAVE</button>
+            <button onclick="hd('am')" class="sc">CANCEL</button>
         </div>
     </div>
     <div id="gm" class="md hid" onclick="if(event.target===this)hd('gm')">
         <div class="mb">
-            <div class="mh">generate password</div>
+            <div class="mh">GENERATE PASSWORD</div>
             <input type="number" id="ln" value="16" min="4" max="64">
-            <button onclick="gn()">generate</button>
+            <button onclick="gn()">GENERATE</button>
             <div id="go"></div>
-            <button onclick="hd('gm')" class="sc">close</button>
+            <button onclick="hd('gm')" class="sc">CLOSE</button>
         </div>
     </div>
     <script>
@@ -198,7 +198,7 @@
             }
             let h='';
             e.forEach(x=>{
-                h+='<div class="en"><div class="et"><div class="nm">'+x.n+'</div><div class="bt"><button onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">copy</button><button onclick="dl(\''+x.id+'\')" class="dg">delete</button></div></div><div class="fd"><span class="lb">user:</span><span class="vl" onclick="cp(\''+x.u.replace(/'/g,"\\'")+'\')">'+x.u+'</span></div><div class="fd"><span class="lb">pass:</span><span class="vl" onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">'+x.p+'</span></div>';
+                h+='<div class="en"><div class="et"><div class="nm">'+x.n+'</div><div class="bt"><button onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">COPY</button><button onclick="dl(\''+x.id+'\')" class="dg">DELETE</button></div></div><div class="fd"><span class="lb">user:</span><span class="vl" onclick="cp(\''+x.u.replace(/'/g,"\\'")+'\')">'+x.u+'</span></div><div class="fd"><span class="lb">pass:</span><span class="vl" onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">'+x.p+'</span></div>';
                 if(x.url)h+='<div class="fd"><span class="lb">url:</span><span class="vl">'+x.url+'</span></div>';
                 if(x.nt)h+='<div class="fd"><span class="lb">notes:</span><span class="vl">'+x.nt+'</span></div>';
                 h+='</div>';
@@ -233,14 +233,14 @@
                 ur=document.getElementById('ur').value.trim(),
                 nt=document.getElementById('nt').value.trim();
             if(!n||!u||!ps){
-                alert('name, username and password required');
+                alert('Name, Username and Password required');
                 return;
             }
             const d=await ap('add',{name:n,user:u,pass:ps,url:ur,note:nt});
             if(d.ok){
                 ld();
                 hd('am');
-                sm('ms','password added','ok');
+                sm('ms','Password Added','ok');
                 document.getElementById('nm').value='';
                 document.getElementById('us').value='';
                 document.getElementById('ps').value='';
@@ -249,11 +249,11 @@
             }
         }
         async function dl(i){
-            if(!confirm('delete this password?'))return;
+            if(!confirm('Delete this password?'))return;
             const d=await ap('delete',{id:i});
             if(d.ok){
                 ld();
-                sm('ms','password deleted','ok');
+                sm('ms','Password Deleted','ok');
             }
         }
         async function gn(){
@@ -266,13 +266,13 @@
         async function sv(){
             const d=await ap('save');
             if(d.ok){
-                sm('ms','changes saved to vault permanently','ok');
+                sm('ms','Changes saved to vault permanently','ok');
             }else{
                 sm('ms',d.msg||'save failed','er');
             }
         }
         function cp(t){
-            navigator.clipboard.writeText(t).then(()=>sm('ms','copied to clipboard','ok')).catch(()=>sm('ms','copy failed','er'));
+            navigator.clipboard.writeText(t).then(()=>sm('ms','Copied to clipboard','ok')).catch(()=>sm('ms','copy failed','er'));
         }
         function sm(i,m,t){
             const el=document.getElementById(i);
