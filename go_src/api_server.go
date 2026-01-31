@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -57,42 +56,47 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	switch act {
 	case "unlock":
 		pwd, _ := req["pwd"].(string)
-		ms_pwd = pwd
+		if pwd == "" {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "password required"})
+			return
+		}
 
 		if _, err := os.Stat(vt_path); os.IsNotExist(err) {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "no vault - create with CLI"})
 			return
 		}
 
-		encD, err := os.ReadFile(vt_path)
+		wd, err := os.Getwd()
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "cant read vault"})
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "failed to get working directory"})
 			return
 		}
 
-		parts := strings.SplitN(string(encD), ":", 2)
-		if len(parts) != 2 {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "invalid vault"})
+		cmd := exec.Command("cargo", "run", "--release", "--", "unlock", pwd)
+		cmd.Dir = wd
+		err = cmd.Run()
+
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"ok":  false,
+				"msg": "wrong password",
+			})
 			return
 		}
 
 		tempD, err := os.ReadFile(tempP)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "unlock vault with CLI first (make run)"})
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "failed to read decrypted vault"})
 			return
 		}
 
 		var tempV Vault
 		if err := json.Unmarshal(tempD, &tempV); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "temp file corrupted - unlock CLI again"})
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "failed to parse vault"})
 			return
 		}
 
-		if tempV.S != parts[0] {
-			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "wrong password or temp file outdated"})
-			return
-		}
-
+		ms_pwd = pwd
 		v = &tempV
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "msg": "unlocked"})
 
@@ -279,7 +283,7 @@ func webUI(w http.ResponseWriter, r *http.Request) {
             <div class="c">
                 <div class="hd">
                     <h1>PASSLOCK</h1>
-                    <p>password manager</p>
+                    <p>Password Manager</p>
                 </div>
                 <div id="lg" class="bx">
                     <h2>unlock vault</h2>

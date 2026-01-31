@@ -9,6 +9,29 @@ use colored::Colorize;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    
+    if args.len() >= 3 && args[1] == "unlock" {
+        let pwd = &args[2];
+        
+        match storage::ld_vt(pwd) {
+            Ok(vault) => {
+                let temp_path = storage::gtp_path();
+                if let Ok(json) = serde_json::to_string(&vault) {
+                    if std::fs::write(&temp_path, json).is_ok() {
+                        println!("✓ vault unlocked");
+                        std::process::exit(0);
+                    }
+                }
+                eprintln!("Error: failed to write temp file");
+                std::process::exit(1);
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
+    
     if args.len() >= 3 && args[1] == "sync" {
         let pwd = &args[2];
         
