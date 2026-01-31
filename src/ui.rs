@@ -1,69 +1,1145 @@
-use colored::*;
-use std::io::{self, Write};
+use crate::crypto;
+use crate::models::{Entry, Vault};
+use crate::storage;
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use ratatui::{
+    backend::CrosstermBackend,
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
+    Frame, Terminal,
+};
+use std::io;
 
-pub fn clr() {
-    clearscreen::clear().unwrap();
+#[derive(Clone, PartialEq)]
+enum Screen {
+    VaultCheck,
+    CreateVault,
+    UnlockVault,
+    MainMenu,
+    ViewPasswords,
+    AddPassword,
+    SearchPassword,
+    GeneratePassword,
+    DeletePassword,
 }
 
-pub fn banner() {
-    println!("{}", "╔═══════════════════════════════════════╗".bright_cyan());
-    println!("{}", "║                                       ║".bright_cyan());
-    println!("{}     {}      {}", "║".bright_cyan(), "PASSLOCK v0.1".bright_white().bold(), "               ║".bright_cyan());
-    println!("{}   {}   {}", "║".bright_cyan(), "secure password manager".bright_black(), "          ║".bright_cyan());
-    println!("{}", "║                                       ║".bright_cyan());
-    println!("{}", "╚═══════════════════════════════════════╝".bright_cyan());
-    println!();
+#[allow(dead_code)]
+#[derive(Clone, PartialEq)]
+enum InputField {
+    None,
+    Password,
+    PasswordConfirm,
+    Name,
+    Username,
+    Pass,
+    Url,
+    Notes,
+    Search,
+    Length,
+    DeleteIndex,
 }
 
-pub fn sep() {
-    println!("{}", "───────────────────────────────────────".bright_black());
+#[allow(dead_code)]
+struct App {
+    screen: Screen,
+    vault: Option<Vault>,
+    master_password: String,
+    selected_menu: usize,
+    input_field: InputField,
+    input_buffer: String,
+    input_buffer_2: String,
+    message: String,
+    message_type: MessageType,
+    entries_display: Vec<Entry>,
+    search_query: String,
+    generated_password: String,
+    scroll_offset: usize,
+    new_entry_name: String,
+    new_entry_user: String,
+    new_entry_pass: String,
+    new_entry_url: String,
+    new_entry_notes: String,
+    add_field_index: usize,
 }
 
-pub fn menu() {
-    sep();
-    println!("  {}  list all passwords", "[1]".bright_green().bold());
-    println!("  {}  add new password", "[2]".bright_green().bold());
-    println!("  {}  search password", "[3]".bright_green().bold());
-    println!("  {}  generate password", "[4]".bright_green().bold());
-    println!("  {}  delete password", "[5]".bright_green().bold());
-    println!("  {}  exit", "[0]".bright_red().bold());
-    sep();
+#[derive(Clone, PartialEq)]
+enum MessageType {
+    None,
+    Success,
+    Error,
+    Info,
 }
 
-pub fn inp(prompt: &str) -> String {
-    print!("{} ", prompt.bright_yellow());
-    io::stdout().flush().unwrap();
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf).unwrap();
-    buf.trim().to_string()
+impl App {
+    fn new() -> Self {
+        Self {
+            screen: Screen::VaultCheck,
+            vault: None,
+            master_password: String::new(),
+            selected_menu: 0,
+            input_field: InputField::None,
+            input_buffer: String::new(),
+            input_buffer_2: String::new(),
+            message: String::new(),
+            message_type: MessageType::None,
+            entries_display: Vec::new(),
+            search_query: String::new(),
+            generated_password: String::new(),
+            scroll_offset: 0,
+            new_entry_name: String::new(),
+            new_entry_user: String::new(),
+            new_entry_pass: String::new(),
+            new_entry_url: String::new(),
+            new_entry_notes: String::new(),
+            add_field_index: 0,
+        }
+    }
+
+    fn check_vault(&mut self) {
+        if storage::vt_exi() {
+            self.screen = Screen::UnlockVault;
+            self.input_field = InputField::Password;
+        } else {
+            self.screen = Screen::CreateVault;
+            self.input_field = InputField::Password;
+            self.set_msg("No vault found. Create one to get started!", MessageType::Info);
+        }
+    }
+
+    fn create_vault(&mut self) {
+        if self.input_buffer.len() < 4 {
+            self.set_msg("Password too short (min 4 chars)", MessageType::Error);
+            return;
+        }
+
+        if self.input_buffer != self.input_buffer_2 {
+            self.set_msg("Passwords don't match!", MessageType::Error);
+            return;
+        }
+
+        let salt = crypto::gen_salt();
+        let vault = Vault::new(salt);
+
+        match storage::svv(&vault, &self.input_buffer) {
+            Ok(_) => {
+                self.master_password = self.input_buffer.clone();
+                self.vault = Some(vault);
+                self.screen = Screen::MainMenu;
+                self.input_buffer.clear();
+                self.input_buffer_2.clear();
+                self.input_field = InputField::None;
+                self.set_msg("Vault created successfully!", MessageType::Success);
+            }
+            Err(e) => {
+                self.set_msg(&format!("Failed to create vault: {}", e), MessageType::Error);
+            }
+        }
+    }
+
+    fn unlock_vault(&mut self) {
+        match storage::ld_vt(&self.input_buffer) {
+            Ok(vault) => {
+                self.master_password = self.input_buffer.clone();
+                self.vault = Some(vault);
+                self.screen = Screen::MainMenu;
+                self.input_buffer.clear();
+                self.input_field = InputField::None;
+                self.set_msg("Vault unlocked!", MessageType::Success);
+            }
+            Err(_) => {
+                self.set_msg("Wrong password!", MessageType::Error);
+            }
+        }
+    }
+
+    fn add_entry(&mut self) {
+        if self.new_entry_name.is_empty() || self.new_entry_user.is_empty() || self.new_entry_pass.is_empty() {
+            self.set_msg("Name, Username, and Password are required!", MessageType::Error);
+            return;
+        }
+
+        let entry = Entry {
+            id: crate::generate_uuid(),
+            n: self.new_entry_name.clone(),
+            u: self.new_entry_user.clone(),
+            p: self.new_entry_pass.clone(),
+            url: if self.new_entry_url.is_empty() { None } else { Some(self.new_entry_url.clone()) },
+            nt: if self.new_entry_notes.is_empty() { None } else { Some(self.new_entry_notes.clone()) },
+            t: crate::get_timestamp(),
+        };
+
+        if let Some(ref mut vault) = self.vault {
+            vault.e.push(entry);
+            
+            if let Err(e) = storage::svv(vault, &self.master_password) {
+                self.set_msg(&format!("Failed to save: {}", e), MessageType::Error);
+            } else {
+                self.set_msg("Password added successfully!", MessageType::Success);
+                self.ca_form();
+                self.screen = Screen::MainMenu;
+            }
+        }
+    }
+
+    fn delete_entry(&mut self, index: usize) {
+        if let Some(ref mut vault) = self.vault {
+            if index < vault.e.len() {
+                let removed = vault.e.remove(index);
+                
+                if let Err(e) = storage::svv(vault, &self.master_password) {
+                    self.set_msg(&format!("Failed to save: {}", e), MessageType::Error);
+                } else {
+                    self.set_msg(&format!("Deleted '{}'", removed.n), MessageType::Success);
+                    self.screen = Screen::MainMenu;
+                }
+            } else {
+                self.set_msg("Invalid entry number!", MessageType::Error);
+            }
+        }
+    }
+
+    fn search_entries(&mut self) {
+        if let Some(ref vault) = self.vault {
+            let query = self.search_query.to_lowercase();
+            self.entries_display = vault
+                .e
+                .iter()
+                .filter(|e| {
+                    e.n.to_lowercase().contains(&query)
+                        || e.u.to_lowercase().contains(&query)
+                        || e.url.as_ref().map_or(false, |u| u.to_lowercase().contains(&query))
+                })
+                .cloned()
+                .collect();
+        }
+    }
+
+    fn gen_pwd(&mut self) {
+        let len = self.input_buffer.parse::<usize>().unwrap_or(16).max(4).min(64);
+        self.generated_password = crypto::gen_pwd(len);
+    }
+
+    fn set_msg(&mut self, msg: &str, msg_type: MessageType) {
+        self.message = msg.to_string();
+        self.message_type = msg_type;
+    }
+
+    fn ca_form(&mut self) {
+        self.new_entry_name.clear();
+        self.new_entry_user.clear();
+        self.new_entry_pass.clear();
+        self.new_entry_url.clear();
+        self.new_entry_notes.clear();
+        self.add_field_index = 0;
+    }
 }
 
-pub fn sec_inp(prompt: &str) -> String {
-    print!("{} ", prompt.bright_yellow());
-    io::stdout().flush().unwrap();
-    rpassword::read_password().unwrap_or_default()
+pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    let mut app = App::new();
+    app.check_vault();
+
+    let res = run_app(&mut terminal, &mut app);
+
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+
+    if let Err(err) = res {
+        println!("Error: {:?}", err);
+    }
+
+    Ok(())
 }
 
-pub fn ok(msg: &str) {
-    println!("{} {}", "✓".bright_green().bold(), msg.bright_white());
+fn run_app<B: ratatui::backend::Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+) -> io::Result<()> {
+    loop {
+        terminal.draw(|f| ui(f, app))?;
+
+        if let Event::Key(key) = event::read()? {
+            if key.kind == KeyEventKind::Press {
+                match app.screen {
+                    Screen::VaultCheck => {}
+                    Screen::CreateVault => handle_cvi(app, key.code),
+                    Screen::UnlockVault => handle_uvi(app, key.code),
+                    Screen::MainMenu => {
+                        if handle_mmi(app, key.code) {
+                            return Ok(());
+                        }
+                    }
+                    Screen::ViewPasswords => handle_vpi(app, key.code),
+                    Screen::AddPassword => handle_api(app, key.code),
+                    Screen::SearchPassword => handle_si(app, key.code),
+                    Screen::GeneratePassword => handle_gi(app, key.code),
+                    Screen::DeletePassword => handle_di(app, key.code),
+                }
+            }
+        }
+    }
 }
 
-pub fn err(msg: &str) {
-    println!("{} {}", "✗".bright_red().bold(), msg.bright_white());
+fn ui(f: &mut Frame, app: &App) {
+    let size = f.size();
+
+    match app.screen {
+        Screen::VaultCheck => draw_loading(f, size),
+        Screen::CreateVault => draw_create_vault(f, size, app),
+        Screen::UnlockVault => draw_unlock_vault(f, size, app),
+        Screen::MainMenu => draw_main_menu(f, size, app),
+        Screen::ViewPasswords => draw_view_pwds(f, size, app),
+        Screen::AddPassword => draw_add_pwd(f, size, app),
+        Screen::SearchPassword => draw_search_pwd(f, size, app),
+        Screen::GeneratePassword => draw_gen_pwd(f, size, app),
+        Screen::DeletePassword => draw_del_pwd(f, size, app),
+    }
 }
 
-pub fn info(msg: &str) {
-    println!("{} {}", "→".bright_blue().bold(), msg.bright_white());
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }
 
-pub fn warn(msg: &str) {
-    println!("{} {}", "!".bright_yellow().bold(), msg.bright_white());
+fn draw_loading(f: &mut Frame, size: Rect) {
+    let area = centered_rect(50, 30, size);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(" PASSLOCK ")
+        .title_alignment(Alignment::Center);
+
+    let text = Paragraph::new("Checking vault...")
+        .block(block)
+        .alignment(Alignment::Center)
+        .style(Style::default().fg(Color::White));
+
+    f.render_widget(Clear, area);
+    f.render_widget(text, area);
 }
 
-pub fn pause() {
-    println!();
-    print!("{}", "press enter to continue...".bright_black());
-    io::stdout().flush().unwrap();
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf).unwrap();
+fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
+    let area = centered_rect(60, 50, size);
+    
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(1),
+            Constraint::Length(3),
+        ])
+        .split(area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(" CREATE VAULT ")
+        .title_alignment(Alignment::Center);
+
+    f.render_widget(block, area);
+
+    let title = Paragraph::new("Create a new master password")
+        .style(Style::default().fg(Color::Yellow))
+        .alignment(Alignment::Center);
+    f.render_widget(title, chunks[0]);
+
+    let pwd_text = if app.input_field == InputField::Password {
+        format!("Password: {}", "*".repeat(app.input_buffer.len()))
+    } else {
+        format!("Password: {}", "*".repeat(app.input_buffer.len()))
+    };
+    
+    let pwd_style = if app.input_field == InputField::Password {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    
+    let password_input = Paragraph::new(pwd_text)
+        .style(pwd_style);
+    f.render_widget(password_input, chunks[1]);
+
+    let confirm_text = if app.input_field == InputField::PasswordConfirm {
+        format!("Confirm: {}", "*".repeat(app.input_buffer_2.len()))
+    } else {
+        format!("Confirm: {}", "*".repeat(app.input_buffer_2.len()))
+    };
+    
+    let confirm_style = if app.input_field == InputField::PasswordConfirm {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    
+    let confirm_input = Paragraph::new(confirm_text)
+        .style(confirm_style);
+    f.render_widget(confirm_input, chunks[2]);
+
+    if !app.message.is_empty() {
+        let msg_style = match app.message_type {
+            MessageType::Success => Style::default().fg(Color::Green),
+            MessageType::Error => Style::default().fg(Color::Red),
+            MessageType::Info => Style::default().fg(Color::Cyan),
+            MessageType::None => Style::default().fg(Color::White),
+        };
+        let msg = Paragraph::new(app.message.as_str())
+            .style(msg_style)
+            .alignment(Alignment::Center);
+        f.render_widget(msg, chunks[3]);
+    }
+
+    let help = Paragraph::new("Tab: Switch fields | Enter: Create | Esc: Quit")
+        .style(Style::default().fg(Color::DarkGray))
+        .alignment(Alignment::Center);
+    f.render_widget(help, chunks[4]);
 }
+
+fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
+    let area = centered_rect(60, 40, size);
+    
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(1),
+            Constraint::Length(3),
+        ])
+        .split(area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(" UNLOCK VAULT ")
+        .title_alignment(Alignment::Center);
+
+    f.render_widget(block, area);
+
+    let title = Paragraph::new("Enter your master password")
+        .style(Style::default().fg(Color::Yellow))
+        .alignment(Alignment::Center);
+    f.render_widget(title, chunks[0]);
+
+    let pwd_text = format!("Password: {}", "*".repeat(app.input_buffer.len()));
+    let password_input = Paragraph::new(pwd_text)
+        .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
+    f.render_widget(password_input, chunks[1]);
+
+    if !app.message.is_empty() {
+        let msg_style = match app.message_type {
+            MessageType::Success => Style::default().fg(Color::Green),
+            MessageType::Error => Style::default().fg(Color::Red),
+            MessageType::Info => Style::default().fg(Color::Cyan),
+            MessageType::None => Style::default().fg(Color::White),
+        };
+        let msg = Paragraph::new(app.message.as_str())
+            .style(msg_style)
+            .alignment(Alignment::Center);
+        f.render_widget(msg, chunks[2]);
+    }
+
+    let help = Paragraph::new("Enter: Unlock | Esc: Quit")
+        .style(Style::default().fg(Color::DarkGray))
+        .alignment(Alignment::Center);
+    f.render_widget(help, chunks[3]);
+}
+
+fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
+    let area = centered_rect(70, 60, size);
+    
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(3),
+            Constraint::Length(3),
+        ])
+        .split(area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(" PASSLOCK - MAIN MENU ")
+        .title_alignment(Alignment::Center);
+
+    f.render_widget(block, area);
+
+    let vault_info = if let Some(ref vault) = app.vault {
+        format!("Vault unlocked | {} passwords stored", vault.e.len())
+    } else {
+        "No vault loaded".to_string()
+    };
+    
+    let info = Paragraph::new(vault_info)
+        .style(Style::default().fg(Color::Yellow))
+        .alignment(Alignment::Center);
+    f.render_widget(info, chunks[0]);
+
+    let menu_items = vec![
+        "View All Passwords",
+        "Add New Password",
+        "Search Passwords",
+        "Generate Password",
+        "Delete Password",
+        "Exit",
+    ];
+
+    let items: Vec<ListItem> = menu_items
+        .iter()
+        .enumerate()
+        .map(|(i, item)| {
+            let style = if i == app.selected_menu {
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            
+            let prefix = if i == app.selected_menu { "▶ " } else { "  " };
+            ListItem::new(format!("{}{}", prefix, item)).style(style)
+        })
+        .collect();
+
+    let list = List::new(items)
+        .block(Block::default().borders(Borders::NONE));
+    
+    f.render_widget(list, chunks[1]);
+
+    if !app.message.is_empty() {
+        let msg_style = match app.message_type {
+            MessageType::Success => Style::default().fg(Color::Green),
+            MessageType::Error => Style::default().fg(Color::Red),
+            MessageType::Info => Style::default().fg(Color::Cyan),
+            MessageType::None => Style::default().fg(Color::White),
+        };
+        let msg = Paragraph::new(app.message.as_str())
+            .style(msg_style)
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(msg, chunks[2]);
+    }
+
+    let help = Paragraph::new("↑/↓: Navigate | Enter: Select | Esc: Back")
+        .style(Style::default().fg(Color::DarkGray))
+        .alignment(Alignment::Center);
+    f.render_widget(help, chunks[3]);
+}
+
+fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
+    let area = centered_rect(90, 80, size);
+    
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(3),
+        ])
+        .split(area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(" ALL PASSWORDS ")
+        .title_alignment(Alignment::Center);
+
+    f.render_widget(block, area);
+
+    if let Some(ref vault) = app.vault {
+        let title = Paragraph::new(format!("Total: {} passwords", vault.e.len()))
+            .style(Style::default().fg(Color::Yellow))
+            .alignment(Alignment::Center);
+        f.render_widget(title, chunks[0]);
+
+        if vault.e.is_empty() {
+            let empty = Paragraph::new("No passwords saved yet")
+                .style(Style::default().fg(Color::DarkGray))
+                .alignment(Alignment::Center);
+            f.render_widget(empty, chunks[1]);
+        } else {
+            let items: Vec<ListItem> = vault
+                .e
+                .iter()
+                .enumerate()
+                .map(|(i, entry)| {
+                    let mut lines = vec![
+                        Line::from(vec![
+                            Span::styled(
+                                format!("[{}] ", i + 1),
+                                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                            ),
+                            Span::styled(
+                                &entry.n,
+                                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                            ),
+                        ]),
+                        Line::from(vec![
+                            Span::raw("    User: "),
+                            Span::styled(&entry.u, Style::default().fg(Color::Yellow)),
+                        ]),
+                        Line::from(vec![
+                            Span::raw("    Pass: "),
+                            Span::styled(&entry.p, Style::default().fg(Color::Magenta)),
+                        ]),
+                    ];
+
+                    if let Some(ref url) = entry.url {
+                        lines.push(Line::from(vec![
+                            Span::raw("    URL:  "),
+                            Span::styled(url, Style::default().fg(Color::Blue)),
+                        ]));
+                    }
+
+                    if let Some(ref notes) = entry.nt {
+                        lines.push(Line::from(vec![
+                            Span::raw("    Note: "),
+                            Span::styled(notes, Style::default().fg(Color::DarkGray)),
+                        ]));
+                    }
+
+                    lines.push(Line::from(""));
+
+                    ListItem::new(lines)
+                })
+                .collect();
+
+            let list = List::new(items)
+                .block(Block::default().borders(Borders::NONE));
+            
+            f.render_widget(list, chunks[1]);
+        }
+    }
+
+    let help = Paragraph::new("Esc: Back to menu")
+        .style(Style::default().fg(Color::DarkGray))
+        .alignment(Alignment::Center);
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
+    let area = centered_rect(70, 70, size);
+    
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(5),
+            Constraint::Min(1),
+            Constraint::Length(3),
+        ])
+        .split(area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(" ADD NEW PASSWORD ")
+        .title_alignment(Alignment::Center);
+
+    f.render_widget(block, area);
+
+    let title = Paragraph::new("Fill in the details")
+        .style(Style::default().fg(Color::Yellow))
+        .alignment(Alignment::Center);
+    f.render_widget(title, chunks[0]);
+
+    let fields = vec![
+        ("Name:", &app.new_entry_name, 0),
+        ("Username:", &app.new_entry_user, 1),
+        ("Password:", &app.new_entry_pass, 2),
+        ("URL (optional):", &app.new_entry_url, 3),
+    ];
+
+    for (i, (label, value, field_idx)) in fields.iter().enumerate() {
+        let style = if *field_idx == app.add_field_index {
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        
+        let field = Paragraph::new(format!("{} {}", label, value))
+            .style(style);
+        f.render_widget(field, chunks[i + 1]);
+    }
+
+    let notes_style = if app.add_field_index == 4 {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    
+    let notes = Paragraph::new(format!("Notes (optional):\n{}", app.new_entry_notes))
+        .style(notes_style)
+        .wrap(Wrap { trim: false });
+    f.render_widget(notes, chunks[5]);
+
+    if !app.message.is_empty() {
+        let msg_style = match app.message_type {
+            MessageType::Success => Style::default().fg(Color::Green),
+            MessageType::Error => Style::default().fg(Color::Red),
+            MessageType::Info => Style::default().fg(Color::Cyan),
+            MessageType::None => Style::default().fg(Color::White),
+        };
+        let msg = Paragraph::new(app.message.as_str())
+            .style(msg_style)
+            .alignment(Alignment::Center);
+        f.render_widget(msg, chunks[6]);
+    }
+
+    let help = Paragraph::new("Tab: Next field | Enter: Save (or newline in notes) | Esc: Cancel")
+        .style(Style::default().fg(Color::DarkGray))
+        .alignment(Alignment::Center);
+    f.render_widget(help, chunks[7]);
+}
+
+fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
+    let area = centered_rect(80, 70, size);
+    
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(3),
+        ])
+        .split(area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(" SEARCH PASSWORDS ")
+        .title_alignment(Alignment::Center);
+
+    f.render_widget(block, area);
+
+    let title = Paragraph::new("Search by name, username, or URL")
+        .style(Style::default().fg(Color::Yellow))
+        .alignment(Alignment::Center);
+    f.render_widget(title, chunks[0]);
+
+    let search = Paragraph::new(format!("Search: {}", app.search_query))
+        .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
+    f.render_widget(search, chunks[1]);
+
+    if app.entries_display.is_empty() && !app.search_query.is_empty() {
+        let empty = Paragraph::new("No matches found")
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(Alignment::Center);
+        f.render_widget(empty, chunks[2]);
+    } else if !app.entries_display.is_empty() {
+        let items: Vec<ListItem> = app
+            .entries_display
+            .iter()
+            .map(|entry| {
+                let lines = vec![
+                    Line::from(vec![
+                        Span::styled(&entry.n, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                    ]),
+                    Line::from(vec![
+                        Span::raw("  User: "),
+                        Span::styled(&entry.u, Style::default().fg(Color::Yellow)),
+                    ]),
+                    Line::from(vec![
+                        Span::raw("  Pass: "),
+                        Span::styled(&entry.p, Style::default().fg(Color::Magenta)),
+                    ]),
+                    Line::from(""),
+                ];
+
+                ListItem::new(lines)
+            })
+            .collect();
+
+        let list = List::new(items)
+            .block(Block::default().borders(Borders::NONE));
+        
+        f.render_widget(list, chunks[2]);
+    }
+
+    let help = Paragraph::new("Type to search | Esc: Back")
+        .style(Style::default().fg(Color::DarkGray))
+        .alignment(Alignment::Center);
+    f.render_widget(help, chunks[3]);
+}
+
+fn draw_gen_pwd(f: &mut Frame, size: Rect, app: &App) {
+    let area = centered_rect(60, 50, size);
+    
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(5),
+            Constraint::Min(1),
+            Constraint::Length(3),
+        ])
+        .split(area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(" GENERATE PASSWORD ")
+        .title_alignment(Alignment::Center);
+
+    f.render_widget(block, area);
+
+    let title = Paragraph::new("Enter password length (4-64)")
+        .style(Style::default().fg(Color::Yellow))
+        .alignment(Alignment::Center);
+    f.render_widget(title, chunks[0]);
+
+    let length_input = Paragraph::new(format!("Length: {}", if app.input_buffer.is_empty() { "16" } else { &app.input_buffer }))
+        .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
+    f.render_widget(length_input, chunks[1]);
+
+    if !app.generated_password.is_empty() {
+        let generated = Paragraph::new(vec![
+            Line::from("Generated Password:"),
+            Line::from(""),
+            Line::from(Span::styled(
+                &app.generated_password,
+                Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+            )),
+        ])
+        .alignment(Alignment::Center);
+        f.render_widget(generated, chunks[2]);
+    }
+
+    let help = Paragraph::new("Enter: Generate | Esc: Back")
+        .style(Style::default().fg(Color::DarkGray))
+        .alignment(Alignment::Center);
+    f.render_widget(help, chunks[4]);
+}
+
+fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
+    let area = centered_rect(80, 70, size);
+    
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(3),
+            Constraint::Length(3),
+        ])
+        .split(area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Red))
+        .title(" DELETE PASSWORD ")
+        .title_alignment(Alignment::Center);
+
+    f.render_widget(block, area);
+
+    let title = Paragraph::new("Enter the number of the entry to delete")
+        .style(Style::default().fg(Color::Yellow))
+        .alignment(Alignment::Center);
+    f.render_widget(title, chunks[0]);
+
+    if let Some(ref vault) = app.vault {
+        if vault.e.is_empty() {
+            let empty = Paragraph::new("No passwords to delete")
+                .style(Style::default().fg(Color::DarkGray))
+                .alignment(Alignment::Center);
+            f.render_widget(empty, chunks[1]);
+        } else {
+            let items: Vec<ListItem> = vault
+                .e
+                .iter()
+                .enumerate()
+                .map(|(i, entry)| {
+                    ListItem::new(Line::from(vec![
+                        Span::styled(
+                            format!("[{}] ", i + 1),
+                            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(&entry.n, Style::default().fg(Color::White)),
+                    ]))
+                })
+                .collect();
+
+            let list = List::new(items)
+                .block(Block::default().borders(Borders::NONE));
+            
+            f.render_widget(list, chunks[1]);
+        }
+    }
+
+    let input = Paragraph::new(format!("Entry number: {}", app.input_buffer))
+        .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD));
+    f.render_widget(input, chunks[2]);
+
+    let help = Paragraph::new("Type number | Enter: Delete | Esc: Cancel")
+        .style(Style::default().fg(Color::DarkGray))
+        .alignment(Alignment::Center);
+    f.render_widget(help, chunks[3]);
+}
+
+fn handle_cvi(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Char(c) => {
+            if app.input_field == InputField::Password {
+                app.input_buffer.push(c);
+            } else if app.input_field == InputField::PasswordConfirm {
+                app.input_buffer_2.push(c);
+            }
+        }
+        KeyCode::Backspace => {
+            if app.input_field == InputField::Password {
+                app.input_buffer.pop();
+            } else if app.input_field == InputField::PasswordConfirm {
+                app.input_buffer_2.pop();
+            }
+        }
+        KeyCode::Tab => {
+            app.input_field = if app.input_field == InputField::Password {
+                InputField::PasswordConfirm
+            } else {
+                InputField::Password
+            };
+        }
+        KeyCode::Enter => {
+            app.create_vault();
+        }
+        KeyCode::Esc => {
+            std::process::exit(0);
+        }
+        _ => {}
+    }
+}
+
+fn handle_uvi(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Char(c) => {
+            app.input_buffer.push(c);
+        }
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        KeyCode::Enter => {
+            app.unlock_vault();
+        }
+        KeyCode::Esc => {
+            std::process::exit(0);
+        }
+        _ => {}
+    }
+}
+
+fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
+    match key {
+        KeyCode::Up => {
+            if app.selected_menu > 0 {
+                app.selected_menu -= 1;
+            }
+        }
+        KeyCode::Down => {
+            if app.selected_menu < 5 {
+                app.selected_menu += 1;
+            }
+        }
+        KeyCode::Enter => {
+            app.message.clear();
+            match app.selected_menu {
+                0 => app.screen = Screen::ViewPasswords,
+                1 => {
+                    app.screen = Screen::AddPassword;
+                    app.ca_form();
+                }
+                2 => {
+                    app.screen = Screen::SearchPassword;
+                    app.search_query.clear();
+                    app.entries_display.clear();
+                }
+                3 => {
+                    app.screen = Screen::GeneratePassword;
+                    app.input_buffer = String::from("16");
+                    app.generated_password.clear();
+                }
+                4 => {
+                    app.screen = Screen::DeletePassword;
+                    app.input_buffer.clear();
+                }
+                5 => return true,
+                _ => {}
+            }
+        }
+        KeyCode::Esc => {
+            return true;
+        }
+        _ => {}
+    }
+    false
+}
+
+fn handle_vpi(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Esc => {
+            app.screen = Screen::MainMenu;
+        }
+        _ => {}
+    }
+}
+
+fn handle_api(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Char(c) => {
+            match app.add_field_index {
+                0 => app.new_entry_name.push(c),
+                1 => app.new_entry_user.push(c),
+                2 => app.new_entry_pass.push(c),
+                3 => app.new_entry_url.push(c),
+                4 => app.new_entry_notes.push(c),
+                _ => {}
+            }
+        }
+        KeyCode::Backspace => {
+            match app.add_field_index {
+                0 => { app.new_entry_name.pop(); }
+                1 => { app.new_entry_user.pop(); }
+                2 => { app.new_entry_pass.pop(); }
+                3 => { app.new_entry_url.pop(); }
+                4 => { app.new_entry_notes.pop(); }
+                _ => {}
+            }
+        }
+        KeyCode::Tab => {
+            app.add_field_index = (app.add_field_index + 1) % 5;
+        }
+        KeyCode::Enter => {
+            if app.add_field_index == 4 {
+                app.new_entry_notes.push('\n');
+            } else {
+                app.add_entry();
+            }
+        }
+        KeyCode::Esc => {
+            app.screen = Screen::MainMenu;
+            app.ca_form();
+        }
+        _ => {}
+    }
+}
+
+fn handle_si(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Char(c) => {
+            app.search_query.push(c);
+            app.search_entries();
+        }
+        KeyCode::Backspace => {
+            app.search_query.pop();
+            app.search_entries();
+        }
+        KeyCode::Esc => {
+            app.screen = Screen::MainMenu;
+        }
+        _ => {}
+    }
+}
+
+fn handle_gi(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Char(c) if c.is_ascii_digit() => {
+            app.input_buffer.push(c);
+        }
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        KeyCode::Enter => {
+            app.gen_pwd();
+        }
+        KeyCode::Esc => {
+            app.screen = Screen::MainMenu;
+        }
+        _ => {}
+    }
+}
+
+fn handle_di(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Char(c) if c.is_ascii_digit() => {
+            app.input_buffer.push(c);
+        }
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        KeyCode::Enter => {
+            if let Ok(idx) = app.input_buffer.parse::<usize>() {
+                if idx > 0 {
+                    app.delete_entry(idx - 1);
+                } else {
+                    app.set_msg("Invalid entry number!", MessageType::Error);
+                }
+            } else {
+                app.set_msg("Please enter a valid number!", MessageType::Error);
+            }
+        }
+        KeyCode::Esc => {
+            app.screen = Screen::MainMenu;
+        }
+        _ => {}
+    }
+}
+
+pub fn clr() {}
+pub fn banner() {}
+pub fn info(_: &str) {}
+pub fn ok(_: &str) {}
+pub fn err(_: &str) {}
+pub fn warn(_: &str) {}
+pub fn sep() {}
+pub fn menu() {}
+pub fn inp(_: &str) -> String { String::new() }
+pub fn sec_inp(_: &str) -> String { String::new() }
+pub fn pause() {}
