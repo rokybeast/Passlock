@@ -336,14 +336,14 @@ fn draw_loading(f: &mut Frame, size: Rect) {
     let area = centered_rect(50, 30, size);
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(Color::Rgb(80, 120, 150)))
         .title(" PASSLOCK ")
         .title_alignment(Alignment::Center);
 
-    let text = Paragraph::new("Checking vault...")
+    let text = Paragraph::new("Initializing vault...")
         .block(block)
         .alignment(Alignment::Center)
-        .style(Style::default().fg(Color::White));
+        .style(Style::default().fg(Color::Rgb(150, 170, 190)));
 
     f.render_widget(Clear, area);
     f.render_widget(text, area);
@@ -356,39 +356,39 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),  // title
-            Constraint::Length(3),  // pwd input
-            Constraint::Length(2),  // strength
-            Constraint::Length(2),  // strength feedback
-            Constraint::Length(3),  // confirm input
-            Constraint::Min(1),     // msg area
-            Constraint::Length(3),  // help text
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(3),
+            Constraint::Min(1),
+            Constraint::Length(2),
         ])
         .split(area);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(Color::Rgb(90, 100, 130)))
         .title(" CREATE VAULT ")
         .title_alignment(Alignment::Center);
 
     f.render_widget(block, area);
 
-    let title = Paragraph::new("Create a new master password")
-        .style(Style::default().fg(Color::Yellow))
+    let title = Paragraph::new("Create your master password")
+        .style(Style::default().fg(Color::Rgb(140, 160, 180)))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
 
     let pwd_text = if app.input_field == InputField::Password {
-        format!("Password: {}", "*".repeat(app.input_buffer.len()))
+        format!("Password: {}", "•".repeat(app.input_buffer.len()))
     } else {
-        format!("Password: {}", "*".repeat(app.input_buffer.len()))
+        format!("Password: {}", "•".repeat(app.input_buffer.len()))
     };
     
     let pwd_style = if app.input_field == InputField::Password {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(Color::Rgb(140, 150, 160))
     };
     
     let password_input = Paragraph::new(pwd_text)
@@ -399,31 +399,31 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
         let strength = crypto::calc_pwd_strength(&app.input_buffer);
         
         let strength_color = match strength.strength.as_str() {
-            "Weak" => Color::Red,
-            "Fair" => Color::Yellow,
-            "Good" => Color::Cyan,
-            "Strong" => Color::Green,
-            _ => Color::White,
+            "Weak" => Color::Rgb(180, 80, 80),
+            "Fair" => Color::Rgb(180, 140, 80),
+            "Good" => Color::Rgb(100, 140, 180),
+            "Strong" => Color::Rgb(100, 160, 120),
+            _ => Color::Rgb(120, 120, 120),
         };
         
         let bar_width = (30 * strength.percentage) / 100;
         let empty_width = 30 - bar_width;
-        let bar = format!("[{}{}] {}% - {}", 
-            "=".repeat(bar_width as usize),
-            " ".repeat(empty_width as usize),
+        let bar = format!("[{}{}] {}% {}", 
+            "━".repeat(bar_width as usize),
+            "─".repeat(empty_width as usize),
             strength.percentage,
             strength.strength
         );
         
         let strength_display = Paragraph::new(bar)
-            .style(Style::default().fg(strength_color).add_modifier(Modifier::BOLD))
+            .style(Style::default().fg(strength_color))
             .alignment(Alignment::Center);
         f.render_widget(strength_display, chunks[2]);
         
         if !strength.feedback.is_empty() {
             let feedback_text = strength.feedback.join(", ");
             let feedback = Paragraph::new(format!("Tip: {}", feedback_text))
-                .style(Style::default().fg(Color::DarkGray))
+                .style(Style::default().fg(Color::Rgb(100, 110, 120)))
                 .alignment(Alignment::Center)
                 .wrap(Wrap { trim: true });
             f.render_widget(feedback, chunks[3]);
@@ -431,15 +431,15 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
     }
 
     let confirm_text = if app.input_field == InputField::PasswordConfirm {
-        format!("Confirm: {}", "*".repeat(app.input_buffer2.len()))
+        format!("Confirm: {}", "•".repeat(app.input_buffer2.len()))
     } else {
-        format!("Confirm: {}", "*".repeat(app.input_buffer2.len()))
+        format!("Confirm: {}", "•".repeat(app.input_buffer2.len()))
     };
     
     let confirm_style = if app.input_field == InputField::PasswordConfirm {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(Color::Rgb(140, 150, 160))
     };
     
     let confirm_input = Paragraph::new(confirm_text)
@@ -448,10 +448,10 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
 
     if !app.msg.is_empty() {
         let msg_style = match app.msg_type {
-            MessageType::Success => Style::default().fg(Color::Green),
-            MessageType::Error => Style::default().fg(Color::Red),
-            MessageType::Info => Style::default().fg(Color::Cyan),
-            MessageType::None => Style::default().fg(Color::White),
+            MessageType::Success => Style::default().fg(Color::Rgb(100, 160, 120)),
+            MessageType::Error => Style::default().fg(Color::Rgb(180, 90, 90)),
+            MessageType::Info => Style::default().fg(Color::Rgb(100, 140, 180)),
+            MessageType::None => Style::default().fg(Color::Rgb(140, 150, 160)),
         };
         let msg = Paragraph::new(app.msg.as_str())
             .style(msg_style)
@@ -459,8 +459,8 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
         f.render_widget(msg, chunks[5]);
     }
 
-    let help = Paragraph::new("Tab: Switch fields | Enter: Create | Esc: Quit")
-        .style(Style::default().fg(Color::DarkGray))
+    let help = Paragraph::new("Tab: Switch | Enter: Create | Esc: Quit")
+        .style(Style::default().fg(Color::Rgb(90, 100, 110)))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[6]);
 }
@@ -475,34 +475,34 @@ fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Min(1),
-            Constraint::Length(3),
+            Constraint::Length(2),
         ])
         .split(area);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(Color::Rgb(90, 100, 130)))
         .title(" UNLOCK VAULT ")
         .title_alignment(Alignment::Center);
 
     f.render_widget(block, area);
 
     let title = Paragraph::new("Enter your master password")
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(Color::Rgb(140, 160, 180)))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
 
-    let pwd_text = format!("Password: {}", "*".repeat(app.input_buffer.len()));
+    let pwd_text = format!("Password: {}", "•".repeat(app.input_buffer.len()));
     let password_input = Paragraph::new(pwd_text)
-        .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
+        .style(Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD));
     f.render_widget(password_input, chunks[1]);
 
     if !app.msg.is_empty() {
         let msg_style = match app.msg_type {
-            MessageType::Success => Style::default().fg(Color::Green),
-            MessageType::Error => Style::default().fg(Color::Red),
-            MessageType::Info => Style::default().fg(Color::Cyan),
-            MessageType::None => Style::default().fg(Color::White),
+            MessageType::Success => Style::default().fg(Color::Rgb(100, 160, 120)),
+            MessageType::Error => Style::default().fg(Color::Rgb(180, 90, 90)),
+            MessageType::Info => Style::default().fg(Color::Rgb(100, 140, 180)),
+            MessageType::None => Style::default().fg(Color::Rgb(140, 150, 160)),
         };
         let msg = Paragraph::new(app.msg.as_str())
             .style(msg_style)
@@ -511,7 +511,7 @@ fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
     }
 
     let help = Paragraph::new("Enter: Unlock | Esc: Quit")
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Rgb(90, 100, 110)))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[3]);
 }
@@ -526,26 +526,26 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
             Constraint::Length(3),
             Constraint::Min(5),
             Constraint::Length(3),
-            Constraint::Length(3),
+            Constraint::Length(2),
         ])
         .split(area);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
-        .title(" PASSLOCK - MAIN MENU ")
+        .border_style(Style::default().fg(Color::Rgb(90, 100, 130)))
+        .title(" PASSLOCK ")
         .title_alignment(Alignment::Center);
 
     f.render_widget(block, area);
 
     let vault_info = if let Some(ref vault) = app.vault {
-        format!("Vault unlocked | {} passwords stored", vault.e.len())
+        format!("Vault unlocked  |  {} passwords stored", vault.e.len())
     } else {
         "No vault loaded".to_string()
     };
     
     let info = Paragraph::new(vault_info)
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(Color::Rgb(140, 160, 180)))
         .alignment(Alignment::Center);
     f.render_widget(info, chunks[0]);
 
@@ -564,14 +564,13 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         .map(|(i, item)| {
             let style = if i == app.selected_menu {
                 Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
+                    .fg(Color::Rgb(180, 200, 220))
                     .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::White)
+                Style::default().fg(Color::Rgb(140, 150, 160))
             };
             
-            let prefix = if i == app.selected_menu { "▶ " } else { "  " };
+            let prefix = if i == app.selected_menu { " > " } else { "   " };
             ListItem::new(format!("{}{}", prefix, item)).style(style)
         })
         .collect();
@@ -583,10 +582,10 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
 
     if !app.msg.is_empty() {
         let msg_style = match app.msg_type {
-            MessageType::Success => Style::default().fg(Color::Green),
-            MessageType::Error => Style::default().fg(Color::Red),
-            MessageType::Info => Style::default().fg(Color::Cyan),
-            MessageType::None => Style::default().fg(Color::White),
+            MessageType::Success => Style::default().fg(Color::Rgb(100, 160, 120)),
+            MessageType::Error => Style::default().fg(Color::Rgb(180, 90, 90)),
+            MessageType::Info => Style::default().fg(Color::Rgb(100, 140, 180)),
+            MessageType::None => Style::default().fg(Color::Rgb(140, 150, 160)),
         };
         let msg = Paragraph::new(app.msg.as_str())
             .style(msg_style)
@@ -596,7 +595,7 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
     }
 
     let help = Paragraph::new("↑/↓: Navigate | Enter: Select | Esc: Back")
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Rgb(90, 100, 110)))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[3]);
 }
@@ -608,15 +607,15 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),
+            Constraint::Length(2),
             Constraint::Min(5),
-            Constraint::Length(3),
+            Constraint::Length(2),
         ])
         .split(area);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(Color::Rgb(90, 100, 130)))
         .title(" ALL PASSWORDS ")
         .title_alignment(Alignment::Center);
 
@@ -624,13 +623,13 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
 
     if let Some(ref vault) = app.vault {
         let title = Paragraph::new(format!("Total: {} passwords", vault.e.len()))
-            .style(Style::default().fg(Color::Yellow))
+            .style(Style::default().fg(Color::Rgb(140, 160, 180)))
             .alignment(Alignment::Center);
         f.render_widget(title, chunks[0]);
 
         if vault.e.is_empty() {
             let empty = Paragraph::new("No passwords saved yet")
-                .style(Style::default().fg(Color::DarkGray))
+                .style(Style::default().fg(Color::Rgb(100, 110, 120)))
                 .alignment(Alignment::Center);
             f.render_widget(empty, chunks[1]);
         } else {
@@ -643,34 +642,34 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                         Line::from(vec![
                             Span::styled(
                                 format!("[{}] ", i + 1),
-                                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                                Style::default().fg(Color::Rgb(100, 140, 180)),
                             ),
                             Span::styled(
                                 &entry.n,
-                                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                                Style::default().fg(Color::Rgb(140, 180, 160)).add_modifier(Modifier::BOLD),
                             ),
                         ]),
                         Line::from(vec![
                             Span::raw("    User: "),
-                            Span::styled(&entry.u, Style::default().fg(Color::Yellow)),
+                            Span::styled(&entry.u, Style::default().fg(Color::Rgb(160, 170, 180))),
                         ]),
                         Line::from(vec![
                             Span::raw("    Pass: "),
-                            Span::styled(&entry.p, Style::default().fg(Color::Magenta)),
+                            Span::styled(&entry.p, Style::default().fg(Color::Rgb(140, 150, 180))),
                         ]),
                     ];
 
                     if let Some(ref url) = entry.url {
                         lines.push(Line::from(vec![
                             Span::raw("    URL:  "),
-                            Span::styled(url, Style::default().fg(Color::Blue)),
+                            Span::styled(url, Style::default().fg(Color::Rgb(100, 130, 160))),
                         ]));
                     }
 
                     if let Some(ref notes) = entry.nt {
                         lines.push(Line::from(vec![
                             Span::raw("    Note: "),
-                            Span::styled(notes, Style::default().fg(Color::DarkGray)),
+                            Span::styled(notes, Style::default().fg(Color::Rgb(110, 120, 130))),
                         ]));
                     }
 
@@ -688,7 +687,7 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
     }
 
     let help = Paragraph::new("Esc: Back to menu")
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Rgb(90, 100, 110)))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[2]);
 }
@@ -700,54 +699,54 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),  // title
-            Constraint::Length(3),  // name
-            Constraint::Length(3),  // username
-            Constraint::Length(3),  // pwd
-            Constraint::Length(2),  // strength
-            Constraint::Length(2),  // strength feedback
-            Constraint::Length(3),  // url
-            Constraint::Length(5),  // notes
-            Constraint::Min(1),     // msg
-            Constraint::Length(3),  // help
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(4),
+            Constraint::Min(1),
+            Constraint::Length(2),
         ])
         .split(area);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(Color::Rgb(90, 100, 130)))
         .title(" ADD NEW PASSWORD ")
         .title_alignment(Alignment::Center);
 
     f.render_widget(block, area);
 
     let title = Paragraph::new("Fill in the details")
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(Color::Rgb(140, 160, 180)))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
 
     let name_style = if app.add_fi == 0 {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(Color::Rgb(140, 150, 160))
     };
     let name_field = Paragraph::new(format!("Name: {}", app.nEntry_name))
         .style(name_style);
     f.render_widget(name_field, chunks[1]);
 
     let user_style = if app.add_fi == 1 {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(Color::Rgb(140, 150, 160))
     };
     let user_field = Paragraph::new(format!("Username: {}", app.nEntry_user))
         .style(user_style);
     f.render_widget(user_field, chunks[2]);
 
     let pass_style = if app.add_fi == 2 {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(Color::Rgb(140, 150, 160))
     };
     let pass_field = Paragraph::new(format!("Password: {}", app.nEntry_pass))
         .style(pass_style);
@@ -757,31 +756,31 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         let strength = crypto::calc_pwd_strength(&app.nEntry_pass);
         
         let strength_color = match strength.strength.as_str() {
-            "Weak" => Color::Red,
-            "Fair" => Color::Yellow,
-            "Good" => Color::Cyan,
-            "Strong" => Color::Green,
-            _ => Color::White,
+            "Weak" => Color::Rgb(180, 80, 80),
+            "Fair" => Color::Rgb(180, 140, 80),
+            "Good" => Color::Rgb(100, 140, 180),
+            "Strong" => Color::Rgb(100, 160, 120),
+            _ => Color::Rgb(120, 120, 120),
         };
         
         let bar_width = (30 * strength.percentage) / 100;
         let empty_width = 30 - bar_width;
-        let bar = format!("[{}{}] {}% - {}", 
-            "=".repeat(bar_width as usize),
-            " ".repeat(empty_width as usize),
+        let bar = format!("[{}{}] {}% {}", 
+            "━".repeat(bar_width as usize),
+            "─".repeat(empty_width as usize),
             strength.percentage,
             strength.strength
         );
         
         let strength_display = Paragraph::new(bar)
-            .style(Style::default().fg(strength_color).add_modifier(Modifier::BOLD))
+            .style(Style::default().fg(strength_color))
             .alignment(Alignment::Center);
         f.render_widget(strength_display, chunks[4]);
         
         if !strength.feedback.is_empty() {
             let feedback_text = strength.feedback.join(", ");
             let feedback = Paragraph::new(format!("Tip: {}", feedback_text))
-                .style(Style::default().fg(Color::DarkGray))
+                .style(Style::default().fg(Color::Rgb(100, 110, 120)))
                 .alignment(Alignment::Center)
                 .wrap(Wrap { trim: true });
             f.render_widget(feedback, chunks[5]);
@@ -789,18 +788,18 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     }
 
     let url_style = if app.add_fi == 3 {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(Color::Rgb(140, 150, 160))
     };
     let url_field = Paragraph::new(format!("URL (optional): {}", app.nEntry_url))
         .style(url_style);
     f.render_widget(url_field, chunks[6]);
 
     let notes_style = if app.add_fi == 4 {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(Color::Rgb(140, 150, 160))
     };
     let notes = Paragraph::new(format!("Notes (optional):\n{}", app.nEntry_notes))
         .style(notes_style)
@@ -809,10 +808,10 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
 
     if !app.msg.is_empty() {
         let msg_style = match app.msg_type {
-            MessageType::Success => Style::default().fg(Color::Green),
-            MessageType::Error => Style::default().fg(Color::Red),
-            MessageType::Info => Style::default().fg(Color::Cyan),
-            MessageType::None => Style::default().fg(Color::White),
+            MessageType::Success => Style::default().fg(Color::Rgb(100, 160, 120)),
+            MessageType::Error => Style::default().fg(Color::Rgb(180, 90, 90)),
+            MessageType::Info => Style::default().fg(Color::Rgb(100, 140, 180)),
+            MessageType::None => Style::default().fg(Color::Rgb(140, 150, 160)),
         };
         let msg = Paragraph::new(app.msg.as_str())
             .style(msg_style)
@@ -820,8 +819,8 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         f.render_widget(msg, chunks[8]);
     }
 
-    let help = Paragraph::new("Tab: Next field | Enter: Save (or newline in notes) | Esc: Cancel")
-        .style(Style::default().fg(Color::DarkGray))
+    let help = Paragraph::new("Tab: Next field | Enter: Save | Esc: Cancel")
+        .style(Style::default().fg(Color::Rgb(90, 100, 110)))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[9]);
 }
@@ -833,33 +832,33 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Length(3),
+            Constraint::Length(2),
+            Constraint::Length(2),
             Constraint::Min(5),
-            Constraint::Length(3),
+            Constraint::Length(2),
         ])
         .split(area);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(Color::Rgb(90, 100, 130)))
         .title(" SEARCH PASSWORDS ")
         .title_alignment(Alignment::Center);
 
     f.render_widget(block, area);
 
     let title = Paragraph::new("Search by name, username, or URL")
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(Color::Rgb(140, 160, 180)))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
 
     let search = Paragraph::new(format!("Search: {}", app.search_query))
-        .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
+        .style(Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD));
     f.render_widget(search, chunks[1]);
 
     if app.entry_disp.is_empty() && !app.search_query.is_empty() {
         let empty = Paragraph::new("No matches found")
-            .style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().fg(Color::Rgb(100, 110, 120)))
             .alignment(Alignment::Center);
         f.render_widget(empty, chunks[2]);
     } else if !app.entry_disp.is_empty() {
@@ -869,15 +868,15 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
             .map(|entry| {
                 let lines = vec![
                     Line::from(vec![
-                        Span::styled(&entry.n, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                        Span::styled(&entry.n, Style::default().fg(Color::Rgb(140, 180, 160)).add_modifier(Modifier::BOLD)),
                     ]),
                     Line::from(vec![
                         Span::raw("  User: "),
-                        Span::styled(&entry.u, Style::default().fg(Color::Yellow)),
+                        Span::styled(&entry.u, Style::default().fg(Color::Rgb(160, 170, 180))),
                     ]),
                     Line::from(vec![
                         Span::raw("  Pass: "),
-                        Span::styled(&entry.p, Style::default().fg(Color::Magenta)),
+                        Span::styled(&entry.p, Style::default().fg(Color::Rgb(140, 150, 180))),
                     ]),
                     Line::from(""),
                 ];
@@ -893,7 +892,7 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
     }
 
     let help = Paragraph::new("Type to search | Esc: Back")
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Rgb(90, 100, 110)))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[3]);
 }
@@ -905,38 +904,39 @@ fn draw_gen_pwd(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Length(3),
+            Constraint::Length(2),
+            Constraint::Length(2),
             Constraint::Length(5),
             Constraint::Min(1),
-            Constraint::Length(3),
+            Constraint::Length(2),
         ])
         .split(area);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(Color::Rgb(90, 100, 130)))
         .title(" GENERATE PASSWORD ")
         .title_alignment(Alignment::Center);
 
     f.render_widget(block, area);
 
     let title = Paragraph::new("Enter password length (4-64)")
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(Color::Rgb(140, 160, 180)))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
 
     let length_input = Paragraph::new(format!("Length: {}", if app.input_buffer.is_empty() { "16" } else { &app.input_buffer }))
-        .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
+        .style(Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD));
     f.render_widget(length_input, chunks[1]);
 
     if !app.gen_pwd.is_empty() {
         let generated = Paragraph::new(vec![
+            Line::from(""),
             Line::from("Generated Password:"),
             Line::from(""),
             Line::from(Span::styled(
                 &app.gen_pwd,
-                Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+                Style::default().fg(Color::Rgb(140, 180, 160)).add_modifier(Modifier::BOLD),
             )),
         ])
         .alignment(Alignment::Center);
@@ -944,7 +944,7 @@ fn draw_gen_pwd(f: &mut Frame, size: Rect, app: &App) {
     }
 
     let help = Paragraph::new("Enter: Generate | Esc: Back")
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Rgb(90, 100, 110)))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[4]);
 }
@@ -956,30 +956,30 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),
+            Constraint::Length(2),
             Constraint::Min(5),
-            Constraint::Length(3),
-            Constraint::Length(3),
+            Constraint::Length(2),
+            Constraint::Length(2),
         ])
         .split(area);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Red))
+        .border_style(Style::default().fg(Color::Rgb(160, 90, 90)))
         .title(" DELETE PASSWORD ")
         .title_alignment(Alignment::Center);
 
     f.render_widget(block, area);
 
     let title = Paragraph::new("Enter the number of the entry to delete")
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(Color::Rgb(180, 140, 140)))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
 
     if let Some(ref vault) = app.vault {
         if vault.e.is_empty() {
             let empty = Paragraph::new("No passwords to delete")
-                .style(Style::default().fg(Color::DarkGray))
+                .style(Style::default().fg(Color::Rgb(100, 110, 120)))
                 .alignment(Alignment::Center);
             f.render_widget(empty, chunks[1]);
         } else {
@@ -991,9 +991,9 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
                     ListItem::new(Line::from(vec![
                         Span::styled(
                             format!("[{}] ", i + 1),
-                            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                            Style::default().fg(Color::Rgb(160, 90, 90)),
                         ),
-                        Span::styled(&entry.n, Style::default().fg(Color::White)),
+                        Span::styled(&entry.n, Style::default().fg(Color::Rgb(140, 150, 160))),
                     ]))
                 })
                 .collect();
@@ -1006,11 +1006,11 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
     }
 
     let input = Paragraph::new(format!("Entry number: {}", app.input_buffer))
-        .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD));
+        .style(Style::default().fg(Color::Rgb(160, 90, 90)).add_modifier(Modifier::BOLD));
     f.render_widget(input, chunks[2]);
 
     let help = Paragraph::new("Type number | Enter: Delete | Esc: Cancel")
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Rgb(90, 100, 110)))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[3]);
 }
