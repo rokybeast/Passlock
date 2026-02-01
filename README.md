@@ -25,7 +25,7 @@ A secure password manager built with **Rust**, **C**, and **Go**.
 - **Go** - HTTP API server for remote access
 
 ## Directory Structure
-
+str
 ```
 password-manager/
 ├── Cargo.toml
@@ -74,11 +74,12 @@ make test
 - XOR obfuscation layer (C)
 - Argon2 key derivation (Rust)
 - Secure memory wiping (C)
-- HTTP API (Go)
-- Beautiful terminal UI
+- HTTP API hosted Web Server
+- Clean and Intuitive TUI
 - Password generator
 - Search & filter
 - Persistent vault storage
+- Password Strength Meter in both TUI and Web Server
 
 ## Security
 

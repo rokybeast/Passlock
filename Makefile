@@ -3,29 +3,29 @@
 all: build
 
 build:
-	@echo "→ building rust cli..."
+	@echo "→ Building rust cli..."
 	cargo build --release
-	@echo "✓ done"
+	@echo "[✓] Done."
 
 run:
-	@echo "→ running passlock..."
+	@echo "[→] Running PASSLOCK..."
 	cargo run --release
 
 server:
-	@echo "→ building go api server..."
+	@echo "[→] Building GO API server..."
 	cd go_src && go build -o ../target/release/passlock-server api_server.go
-	@echo "→ starting server..."
+	@echo "[→] Starting Server..."
 	./target/release/passlock-server
 
 clean:
-	@echo "→ cleaning..."
+	@echo "[→] Cleaning..."
 	cargo clean
 	rm -f target/release/passlock-server
-	@echo "✓ clean"
+	@echo "[✓] Cleaned."
 
 test:
-	@echo "→ testing c crypto..."
+	@echo "[→] Testing c crypto..."
 	gcc -o test_crypto c_src/crypto_core.c -DTEST_MODE
 	./test_crypto
 	rm test_crypto
-	@echo "✓ tests passed"
+	@echo "[✓] Tests Passed.

@@ -49,23 +49,23 @@ enum InputField {
 struct App {
     screen: Screen,
     vault: Option<Vault>,
-    master_password: String,
+    master_pwd: String,
     selected_menu: usize,
     input_field: InputField,
     input_buffer: String,
-    input_buffer_2: String,
-    message: String,
-    message_type: MessageType,
-    entries_display: Vec<Entry>,
+    input_buffer2: String,
+    msg: String,
+    msg_type: MessageType,
+    entry_disp: Vec<Entry>,
     search_query: String,
-    generated_password: String,
+    gen_pwd: String,
     scroll_offset: usize,
-    new_entry_name: String,
-    new_entry_user: String,
-    new_entry_pass: String,
-    new_entry_url: String,
-    new_entry_notes: String,
-    add_field_index: usize,
+    nEntry_name: String,
+    nEntry_user: String,
+    nEntry_pass: String,
+    nEntry_url: String,
+    nEntry_notes: String,
+    add_fi: usize,
 }
 
 #[derive(Clone, PartialEq)]
@@ -81,23 +81,23 @@ impl App {
         Self {
             screen: Screen::VaultCheck,
             vault: None,
-            master_password: String::new(),
+            master_pwd: String::new(),
             selected_menu: 0,
             input_field: InputField::None,
             input_buffer: String::new(),
-            input_buffer_2: String::new(),
-            message: String::new(),
-            message_type: MessageType::None,
-            entries_display: Vec::new(),
+            input_buffer2: String::new(),
+            msg: String::new(),
+            msg_type: MessageType::None,
+            entry_disp: Vec::new(),
             search_query: String::new(),
-            generated_password: String::new(),
+            gen_pwd: String::new(),
             scroll_offset: 0,
-            new_entry_name: String::new(),
-            new_entry_user: String::new(),
-            new_entry_pass: String::new(),
-            new_entry_url: String::new(),
-            new_entry_notes: String::new(),
-            add_field_index: 0,
+            nEntry_name: String::new(),
+            nEntry_user: String::new(),
+            nEntry_pass: String::new(),
+            nEntry_url: String::new(),
+            nEntry_notes: String::new(),
+            add_fi: 0,
         }
     }
 
@@ -118,7 +118,7 @@ impl App {
             return;
         }
 
-        if self.input_buffer != self.input_buffer_2 {
+        if self.input_buffer != self.input_buffer2 {
             self.set_msg("Passwords don't match!", MessageType::Error);
             return;
         }
@@ -128,11 +128,11 @@ impl App {
 
         match storage::svv(&vault, &self.input_buffer) {
             Ok(_) => {
-                self.master_password = self.input_buffer.clone();
+                self.master_pwd = self.input_buffer.clone();
                 self.vault = Some(vault);
                 self.screen = Screen::MainMenu;
                 self.input_buffer.clear();
-                self.input_buffer_2.clear();
+                self.input_buffer2.clear();
                 self.input_field = InputField::None;
                 self.set_msg("Vault created successfully!", MessageType::Success);
             }
@@ -145,7 +145,7 @@ impl App {
     fn unlock_vault(&mut self) {
         match storage::ld_vt(&self.input_buffer) {
             Ok(vault) => {
-                self.master_password = self.input_buffer.clone();
+                self.master_pwd = self.input_buffer.clone();
                 self.vault = Some(vault);
                 self.screen = Screen::MainMenu;
                 self.input_buffer.clear();
@@ -159,25 +159,25 @@ impl App {
     }
 
     fn add_entry(&mut self) {
-        if self.new_entry_name.is_empty() || self.new_entry_user.is_empty() || self.new_entry_pass.is_empty() {
+        if self.nEntry_name.is_empty() || self.nEntry_user.is_empty() || self.nEntry_pass.is_empty() {
             self.set_msg("Name, Username, and Password are required!", MessageType::Error);
             return;
         }
 
         let entry = Entry {
             id: crate::generate_uuid(),
-            n: self.new_entry_name.clone(),
-            u: self.new_entry_user.clone(),
-            p: self.new_entry_pass.clone(),
-            url: if self.new_entry_url.is_empty() { None } else { Some(self.new_entry_url.clone()) },
-            nt: if self.new_entry_notes.is_empty() { None } else { Some(self.new_entry_notes.clone()) },
+            n: self.nEntry_name.clone(),
+            u: self.nEntry_user.clone(),
+            p: self.nEntry_pass.clone(),
+            url: if self.nEntry_url.is_empty() { None } else { Some(self.nEntry_url.clone()) },
+            nt: if self.nEntry_notes.is_empty() { None } else { Some(self.nEntry_notes.clone()) },
             t: crate::get_timestamp(),
         };
 
         if let Some(ref mut vault) = self.vault {
             vault.e.push(entry);
             
-            if let Err(e) = storage::svv(vault, &self.master_password) {
+            if let Err(e) = storage::svv(vault, &self.master_pwd) {
                 self.set_msg(&format!("Failed to save: {}", e), MessageType::Error);
             } else {
                 self.set_msg("Password added successfully!", MessageType::Success);
@@ -192,7 +192,7 @@ impl App {
             if index < vault.e.len() {
                 let removed = vault.e.remove(index);
                 
-                if let Err(e) = storage::svv(vault, &self.master_password) {
+                if let Err(e) = storage::svv(vault, &self.master_pwd) {
                     self.set_msg(&format!("Failed to save: {}", e), MessageType::Error);
                 } else {
                     self.set_msg(&format!("Deleted '{}'", removed.n), MessageType::Success);
@@ -207,7 +207,7 @@ impl App {
     fn search_entries(&mut self) {
         if let Some(ref vault) = self.vault {
             let query = self.search_query.to_lowercase();
-            self.entries_display = vault
+            self.entry_disp = vault
                 .e
                 .iter()
                 .filter(|e| {
@@ -222,21 +222,21 @@ impl App {
 
     fn gen_pwd(&mut self) {
         let len = self.input_buffer.parse::<usize>().unwrap_or(16).max(4).min(64);
-        self.generated_password = crypto::gen_pwd(len);
+        self.gen_pwd = crypto::gen_pwd(len);
     }
 
     fn set_msg(&mut self, msg: &str, msg_type: MessageType) {
-        self.message = msg.to_string();
-        self.message_type = msg_type;
+        self.msg = msg.to_string();
+        self.msg_type = msg_type;
     }
 
     fn ca_form(&mut self) {
-        self.new_entry_name.clear();
-        self.new_entry_user.clear();
-        self.new_entry_pass.clear();
-        self.new_entry_url.clear();
-        self.new_entry_notes.clear();
-        self.add_field_index = 0;
+        self.nEntry_name.clear();
+        self.nEntry_user.clear();
+        self.nEntry_pass.clear();
+        self.nEntry_url.clear();
+        self.nEntry_notes.clear();
+        self.add_fi = 0;
     }
 }
 
@@ -350,17 +350,19 @@ fn draw_loading(f: &mut Frame, size: Rect) {
 }
 
 fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
-    let area = centered_rect(60, 50, size);
+    let area = centered_rect(60, 65, size);
     
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Min(1),
-            Constraint::Length(3),
+            Constraint::Length(3),  // title
+            Constraint::Length(3),  // pwd input
+            Constraint::Length(2),  // strength
+            Constraint::Length(2),  // strength feedback
+            Constraint::Length(3),  // confirm input
+            Constraint::Min(1),     // msg area
+            Constraint::Length(3),  // help text
         ])
         .split(area);
 
@@ -393,10 +395,45 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
         .style(pwd_style);
     f.render_widget(password_input, chunks[1]);
 
+    if !app.input_buffer.is_empty() && app.input_field == InputField::Password {
+        let strength = crypto::calc_pwd_strength(&app.input_buffer);
+        
+        let strength_color = match strength.strength.as_str() {
+            "Weak" => Color::Red,
+            "Fair" => Color::Yellow,
+            "Good" => Color::Cyan,
+            "Strong" => Color::Green,
+            _ => Color::White,
+        };
+        
+        let bar_width = (30 * strength.percentage) / 100;
+        let empty_width = 30 - bar_width;
+        let bar = format!("[{}{}] {}% - {}", 
+            "=".repeat(bar_width as usize),
+            " ".repeat(empty_width as usize),
+            strength.percentage,
+            strength.strength
+        );
+        
+        let strength_display = Paragraph::new(bar)
+            .style(Style::default().fg(strength_color).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+        f.render_widget(strength_display, chunks[2]);
+        
+        if !strength.feedback.is_empty() {
+            let feedback_text = strength.feedback.join(", ");
+            let feedback = Paragraph::new(format!("Tip: {}", feedback_text))
+                .style(Style::default().fg(Color::DarkGray))
+                .alignment(Alignment::Center)
+                .wrap(Wrap { trim: true });
+            f.render_widget(feedback, chunks[3]);
+        }
+    }
+
     let confirm_text = if app.input_field == InputField::PasswordConfirm {
-        format!("Confirm: {}", "*".repeat(app.input_buffer_2.len()))
+        format!("Confirm: {}", "*".repeat(app.input_buffer2.len()))
     } else {
-        format!("Confirm: {}", "*".repeat(app.input_buffer_2.len()))
+        format!("Confirm: {}", "*".repeat(app.input_buffer2.len()))
     };
     
     let confirm_style = if app.input_field == InputField::PasswordConfirm {
@@ -407,25 +444,25 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
     
     let confirm_input = Paragraph::new(confirm_text)
         .style(confirm_style);
-    f.render_widget(confirm_input, chunks[2]);
+    f.render_widget(confirm_input, chunks[4]);
 
-    if !app.message.is_empty() {
-        let msg_style = match app.message_type {
+    if !app.msg.is_empty() {
+        let msg_style = match app.msg_type {
             MessageType::Success => Style::default().fg(Color::Green),
             MessageType::Error => Style::default().fg(Color::Red),
             MessageType::Info => Style::default().fg(Color::Cyan),
             MessageType::None => Style::default().fg(Color::White),
         };
-        let msg = Paragraph::new(app.message.as_str())
+        let msg = Paragraph::new(app.msg.as_str())
             .style(msg_style)
             .alignment(Alignment::Center);
-        f.render_widget(msg, chunks[3]);
+        f.render_widget(msg, chunks[5]);
     }
 
     let help = Paragraph::new("Tab: Switch fields | Enter: Create | Esc: Quit")
         .style(Style::default().fg(Color::DarkGray))
         .alignment(Alignment::Center);
-    f.render_widget(help, chunks[4]);
+    f.render_widget(help, chunks[6]);
 }
 
 fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
@@ -460,14 +497,14 @@ fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
     f.render_widget(password_input, chunks[1]);
 
-    if !app.message.is_empty() {
-        let msg_style = match app.message_type {
+    if !app.msg.is_empty() {
+        let msg_style = match app.msg_type {
             MessageType::Success => Style::default().fg(Color::Green),
             MessageType::Error => Style::default().fg(Color::Red),
             MessageType::Info => Style::default().fg(Color::Cyan),
             MessageType::None => Style::default().fg(Color::White),
         };
-        let msg = Paragraph::new(app.message.as_str())
+        let msg = Paragraph::new(app.msg.as_str())
             .style(msg_style)
             .alignment(Alignment::Center);
         f.render_widget(msg, chunks[2]);
@@ -544,14 +581,14 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
     
     f.render_widget(list, chunks[1]);
 
-    if !app.message.is_empty() {
-        let msg_style = match app.message_type {
+    if !app.msg.is_empty() {
+        let msg_style = match app.msg_type {
             MessageType::Success => Style::default().fg(Color::Green),
             MessageType::Error => Style::default().fg(Color::Red),
             MessageType::Info => Style::default().fg(Color::Cyan),
             MessageType::None => Style::default().fg(Color::White),
         };
-        let msg = Paragraph::new(app.message.as_str())
+        let msg = Paragraph::new(app.msg.as_str())
             .style(msg_style)
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true });
@@ -657,20 +694,22 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
 }
 
 fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
-    let area = centered_rect(70, 70, size);
+    let area = centered_rect(70, 75, size);
     
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(5),
-            Constraint::Min(1),
-            Constraint::Length(3),
+            Constraint::Length(3),  // title
+            Constraint::Length(3),  // name
+            Constraint::Length(3),  // username
+            Constraint::Length(3),  // pwd
+            Constraint::Length(2),  // strength
+            Constraint::Length(2),  // strength feedback
+            Constraint::Length(3),  // url
+            Constraint::Length(5),  // notes
+            Constraint::Min(1),     // msg
+            Constraint::Length(3),  // help
         ])
         .split(area);
 
@@ -687,53 +726,104 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
 
-    let fields = vec![
-        ("Name:", &app.new_entry_name, 0),
-        ("Username:", &app.new_entry_user, 1),
-        ("Password:", &app.new_entry_pass, 2),
-        ("URL (optional):", &app.new_entry_url, 3),
-    ];
-
-    for (i, (label, value, field_idx)) in fields.iter().enumerate() {
-        let style = if *field_idx == app.add_field_index {
-            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(Color::White)
-        };
-        
-        let field = Paragraph::new(format!("{} {}", label, value))
-            .style(style);
-        f.render_widget(field, chunks[i + 1]);
-    }
-
-    let notes_style = if app.add_field_index == 4 {
+    let name_style = if app.add_fi == 0 {
         Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::White)
     };
-    
-    let notes = Paragraph::new(format!("Notes (optional):\n{}", app.new_entry_notes))
+    let name_field = Paragraph::new(format!("Name: {}", app.nEntry_name))
+        .style(name_style);
+    f.render_widget(name_field, chunks[1]);
+
+    let user_style = if app.add_fi == 1 {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let user_field = Paragraph::new(format!("Username: {}", app.nEntry_user))
+        .style(user_style);
+    f.render_widget(user_field, chunks[2]);
+
+    let pass_style = if app.add_fi == 2 {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let pass_field = Paragraph::new(format!("Password: {}", app.nEntry_pass))
+        .style(pass_style);
+    f.render_widget(pass_field, chunks[3]);
+
+    if !app.nEntry_pass.is_empty() && app.add_fi == 2 {
+        let strength = crypto::calc_pwd_strength(&app.nEntry_pass);
+        
+        let strength_color = match strength.strength.as_str() {
+            "Weak" => Color::Red,
+            "Fair" => Color::Yellow,
+            "Good" => Color::Cyan,
+            "Strong" => Color::Green,
+            _ => Color::White,
+        };
+        
+        let bar_width = (30 * strength.percentage) / 100;
+        let empty_width = 30 - bar_width;
+        let bar = format!("[{}{}] {}% - {}", 
+            "=".repeat(bar_width as usize),
+            " ".repeat(empty_width as usize),
+            strength.percentage,
+            strength.strength
+        );
+        
+        let strength_display = Paragraph::new(bar)
+            .style(Style::default().fg(strength_color).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+        f.render_widget(strength_display, chunks[4]);
+        
+        if !strength.feedback.is_empty() {
+            let feedback_text = strength.feedback.join(", ");
+            let feedback = Paragraph::new(format!("Tip: {}", feedback_text))
+                .style(Style::default().fg(Color::DarkGray))
+                .alignment(Alignment::Center)
+                .wrap(Wrap { trim: true });
+            f.render_widget(feedback, chunks[5]);
+        }
+    }
+
+    let url_style = if app.add_fi == 3 {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let url_field = Paragraph::new(format!("URL (optional): {}", app.nEntry_url))
+        .style(url_style);
+    f.render_widget(url_field, chunks[6]);
+
+    let notes_style = if app.add_fi == 4 {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let notes = Paragraph::new(format!("Notes (optional):\n{}", app.nEntry_notes))
         .style(notes_style)
         .wrap(Wrap { trim: false });
-    f.render_widget(notes, chunks[5]);
+    f.render_widget(notes, chunks[7]);
 
-    if !app.message.is_empty() {
-        let msg_style = match app.message_type {
+    if !app.msg.is_empty() {
+        let msg_style = match app.msg_type {
             MessageType::Success => Style::default().fg(Color::Green),
             MessageType::Error => Style::default().fg(Color::Red),
             MessageType::Info => Style::default().fg(Color::Cyan),
             MessageType::None => Style::default().fg(Color::White),
         };
-        let msg = Paragraph::new(app.message.as_str())
+        let msg = Paragraph::new(app.msg.as_str())
             .style(msg_style)
             .alignment(Alignment::Center);
-        f.render_widget(msg, chunks[6]);
+        f.render_widget(msg, chunks[8]);
     }
 
     let help = Paragraph::new("Tab: Next field | Enter: Save (or newline in notes) | Esc: Cancel")
         .style(Style::default().fg(Color::DarkGray))
         .alignment(Alignment::Center);
-    f.render_widget(help, chunks[7]);
+    f.render_widget(help, chunks[9]);
 }
 
 fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
@@ -767,14 +857,14 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
     f.render_widget(search, chunks[1]);
 
-    if app.entries_display.is_empty() && !app.search_query.is_empty() {
+    if app.entry_disp.is_empty() && !app.search_query.is_empty() {
         let empty = Paragraph::new("No matches found")
             .style(Style::default().fg(Color::DarkGray))
             .alignment(Alignment::Center);
         f.render_widget(empty, chunks[2]);
-    } else if !app.entries_display.is_empty() {
+    } else if !app.entry_disp.is_empty() {
         let items: Vec<ListItem> = app
-            .entries_display
+            .entry_disp
             .iter()
             .map(|entry| {
                 let lines = vec![
@@ -840,12 +930,12 @@ fn draw_gen_pwd(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
     f.render_widget(length_input, chunks[1]);
 
-    if !app.generated_password.is_empty() {
+    if !app.gen_pwd.is_empty() {
         let generated = Paragraph::new(vec![
             Line::from("Generated Password:"),
             Line::from(""),
             Line::from(Span::styled(
-                &app.generated_password,
+                &app.gen_pwd,
                 Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
             )),
         ])
@@ -931,14 +1021,14 @@ fn handle_cvi(app: &mut App, key: KeyCode) {
             if app.input_field == InputField::Password {
                 app.input_buffer.push(c);
             } else if app.input_field == InputField::PasswordConfirm {
-                app.input_buffer_2.push(c);
+                app.input_buffer2.push(c);
             }
         }
         KeyCode::Backspace => {
             if app.input_field == InputField::Password {
                 app.input_buffer.pop();
             } else if app.input_field == InputField::PasswordConfirm {
-                app.input_buffer_2.pop();
+                app.input_buffer2.pop();
             }
         }
         KeyCode::Tab => {
@@ -989,7 +1079,7 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
             }
         }
         KeyCode::Enter => {
-            app.message.clear();
+            app.msg.clear();
             match app.selected_menu {
                 0 => app.screen = Screen::ViewPasswords,
                 1 => {
@@ -999,12 +1089,12 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
                 2 => {
                     app.screen = Screen::SearchPassword;
                     app.search_query.clear();
-                    app.entries_display.clear();
+                    app.entry_disp.clear();
                 }
                 3 => {
                     app.screen = Screen::GeneratePassword;
                     app.input_buffer = String::from("16");
-                    app.generated_password.clear();
+                    app.gen_pwd.clear();
                 }
                 4 => {
                     app.screen = Screen::DeletePassword;
@@ -1034,31 +1124,31 @@ fn handle_vpi(app: &mut App, key: KeyCode) {
 fn handle_api(app: &mut App, key: KeyCode) {
     match key {
         KeyCode::Char(c) => {
-            match app.add_field_index {
-                0 => app.new_entry_name.push(c),
-                1 => app.new_entry_user.push(c),
-                2 => app.new_entry_pass.push(c),
-                3 => app.new_entry_url.push(c),
-                4 => app.new_entry_notes.push(c),
+            match app.add_fi {
+                0 => app.nEntry_name.push(c),
+                1 => app.nEntry_user.push(c),
+                2 => app.nEntry_pass.push(c),
+                3 => app.nEntry_url.push(c),
+                4 => app.nEntry_notes.push(c),
                 _ => {}
             }
         }
         KeyCode::Backspace => {
-            match app.add_field_index {
-                0 => { app.new_entry_name.pop(); }
-                1 => { app.new_entry_user.pop(); }
-                2 => { app.new_entry_pass.pop(); }
-                3 => { app.new_entry_url.pop(); }
-                4 => { app.new_entry_notes.pop(); }
+            match app.add_fi {
+                0 => { app.nEntry_name.pop(); }
+                1 => { app.nEntry_user.pop(); }
+                2 => { app.nEntry_pass.pop(); }
+                3 => { app.nEntry_url.pop(); }
+                4 => { app.nEntry_notes.pop(); }
                 _ => {}
             }
         }
         KeyCode::Tab => {
-            app.add_field_index = (app.add_field_index + 1) % 5;
+            app.add_fi = (app.add_fi + 1) % 5;
         }
         KeyCode::Enter => {
-            if app.add_field_index == 4 {
-                app.new_entry_notes.push('\n');
+            if app.add_fi == 4 {
+                app.nEntry_notes.push('\n');
             } else {
                 app.add_entry();
             }

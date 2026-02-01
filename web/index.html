@@ -87,16 +87,6 @@
             position:relative;
         }
         
-        .lock-icon{
-            display:inline-block;
-            animation:lockPulse 2s ease-in-out infinite;
-        }
-        
-        @keyframes lockPulse{
-            0%,100%{transform:scale(1);opacity:1}
-            50%{transform:scale(1.1);opacity:0.8}
-        }
-        
         .bx{
             padding:40px;
             border:2px solid #4ade80;
@@ -129,8 +119,7 @@
             mask-composite:exclude;
             opacity:0;
             animation:borderGlow 3s ease-in-out infinite;
-
-            pointer-events: none;
+            pointer-events:none;
         }
         
         @keyframes borderGlow{
@@ -171,6 +160,51 @@
         input::placeholder,textarea::placeholder{
             color:#64748b;
             font-family:'JetBrains Mono',monospace;
+        }
+        
+        .strength-meter{
+            margin:10px 0 5px 0;
+            padding:0;
+        }
+        
+        .strength-bar{
+            height:8px;
+            background:rgba(51,65,85,0.5);
+            border-radius:4px;
+            overflow:hidden;
+            position:relative;
+        }
+        
+        .strength-fill{
+            height:100%;
+            width:0%;
+            transition:all 0.3s ease;
+            border-radius:4px;
+            box-shadow:0 0 10px currentColor;
+        }
+        
+        .strength-text{
+            display:flex;
+            justify-content:space-between;
+            margin-top:5px;
+            font-size:12px;
+        }
+        
+        .strength-label{
+            color:#94a3b8;
+            font-weight:600;
+        }
+        
+        .strength-feedback{
+            margin-top:8px;
+            font-size:11px;
+            color:#94a3b8;
+            line-height:1.6;
+        }
+        
+        .strength-feedback ul{
+            margin:5px 0;
+            padding-left:15px;
         }
         
         button{
@@ -437,6 +471,19 @@
             font-size:15px;
             font-style:italic;
         }
+
+        .cli-hint{
+            text-align:center;
+            margin-top:28px;
+            color:#64748b;
+            font-size:13px;
+            line-height:1.6;
+        }
+
+        .cli-hint code{
+            display:inline-block;
+            margin-top:10px;
+        }
         
         code{
             background:rgba(74,222,128,0.1);
@@ -475,45 +522,55 @@
     <div class="c">
         <div class="hd">
             <h1>PASSLOCK</h1>
-            <p>◈ ENCRYPTED PASSWORD VAULT ◈</p>
+            <p>PASSWORD MANAGER</p>
         </div>
         
         <div id="nv" class="bx hid">
-            <h2>⚠ No Vault Detected</h2>
+            <h2>No Vault Detected</h2>
             <div class="ms inf">
-                <strong>INITIALIZATION REQUIRED</strong><br>
+                <strong>[INITIALIZATION REQUIRED]</strong><br>
                 No encrypted vault found. Create one to begin securing your credentials.
             </div>
-            <button onclick="shc()">🔒 Initialize Vault</button>
-            <div style="text-align:center;margin-top:20px;color:#64748b;font-size:13px">
+            <button onclick="shc()">Initialize Vault</button>
+            <div class="cli-hint">
                 Alternative: CLI creation via<br>
-                <code>cargo run --release</code>
+                <code>make run</code>
             </div>
         </div>
         
         <div id="cv" class="bx hid">
             <h2>Create Master Key</h2>
-            <input type="password" id="np" placeholder="Enter master password" autocomplete="new-password">
+            <input type="password" id="np" placeholder="Enter master password" autocomplete="new-password" oninput="chkStr('np','cv-str')">
+            <div id="cv-str" class="strength-meter hid">
+                <div class="strength-bar">
+                    <div class="strength-fill"></div>
+                </div>
+                <div class="strength-text">
+                    <span class="strength-label"></span>
+                    <span class="strength-percent"></span>
+                </div>
+                <div class="strength-feedback"></div>
+            </div>
             <input type="password" id="cp" placeholder="Confirm master password" onkeypress="if(event.key==='Enter')cr()" autocomplete="new-password">
-            <button onclick="cr()">Generate Vault</button>
-            <button onclick="bk()" class="sc">← Return</button>
+            <button onclick="cr()">[ Generate Vault ]</button>
+            <button onclick="bk()" class="sc">[ Return ]</button>
             <div id="cm"></div>
         </div>
         
         <div id="lg" class="bx hid">
             <h2>Unlock Vault</h2>
             <input type="password" id="pw" placeholder="Master password" onkeypress="if(event.key==='Enter')ul()" autocomplete="current-password">
-            <button onclick="ul()">Decrypt & Access</button>
+            <button onclick="ul()">[ Decrypt & Access ]</button>
             <div id="lm"></div>
         </div>
         
         <div id="ap" class="hid">
             <div class="ct">
-                <input type="text" id="qr" class="srch" placeholder="🔍 Search vault..." oninput="sr()">
-                <button onclick="sa()">➕ Add</button>
-                <button onclick="sg()" class="sc">🎲 Generate</button>
-                <button onclick="sv()">💾 Save</button>
-                <button onclick="lo()" class="dg">🔒 Lock</button>
+                <input type="text" id="qr" class="srch" placeholder="[ Search vault... ]" oninput="sr()">
+                <button onclick="sa()">[ + Add ]</button>
+                <button onclick="sg()" class="sc">[ Gen ]</button>
+                <button onclick="sv()">[ Save ]</button>
+                <button onclick="lo()" class="dg">[ Lock ]</button>
             </div>
             <div id="ms"></div>
             <div id="es"></div>
@@ -522,24 +579,34 @@
     
     <div id="am" class="md hid" onclick="if(event.target===this)hd('am')">
         <div class="mb">
-            <div class="mh">➕ New Entry</div>
+            <div class="mh">[ + New Entry ]</div>
             <input type="text" id="nm" placeholder="Service name (e.g., GitHub)">
             <input type="text" id="us" placeholder="Username / Email">
-            <input type="text" id="ps" placeholder="Password">
+            <input type="text" id="ps" placeholder="Password" oninput="chkStr('ps','am-str')">
+            <div id="am-str" class="strength-meter hid">
+                <div class="strength-bar">
+                    <div class="strength-fill"></div>
+                </div>
+                <div class="strength-text">
+                    <span class="strength-label"></span>
+                    <span class="strength-percent"></span>
+                </div>
+                <div class="strength-feedback"></div>
+            </div>
             <input type="text" id="ur" placeholder="URL (optional)">
             <textarea id="nt" placeholder="Additional notes (optional)" rows="3"></textarea>
-            <button onclick="ad()">💾 Save Entry</button>
-            <button onclick="hd('am')" class="sc">✕ Cancel</button>
+            <button onclick="ad()">[ Save Entry ]</button>
+            <button onclick="hd('am')" class="sc">[ X Cancel ]</button>
         </div>
     </div>
     
     <div id="gm" class="md hid" onclick="if(event.target===this)hd('gm')">
         <div class="mb">
-            <div class="mh">🎲 Password Generator</div>
+            <div class="mh">[ Password Generator ]</div>
             <input type="number" id="ln" value="16" min="4" max="64" placeholder="Password length">
-            <button onclick="gn()">Generate Secure Password</button>
+            <button onclick="gn()">[ Generate Secure Password ]</button>
             <div id="go"></div>
-            <button onclick="hd('gm')" class="sc">✕ Close</button>
+            <button onclick="hd('gm')" class="sc">[ X Close ]</button>
         </div>
     </div>
     
@@ -548,7 +615,7 @@
         const ctx=canvas.getContext('2d');
         canvas.width=window.innerWidth;
         canvas.height=window.innerHeight;
-        const chars='01アイウエオカキクケコサシスセソタチツテト'.split('');
+        const chars='01'.split('');
         const fontSize=14;
         const columns=canvas.width/fontSize;
         const drops=Array(Math.floor(columns)).fill(1);
@@ -573,6 +640,49 @@
         });
         
         let p='',vt=[];
+        
+        async function chkStr(inputId, meterId){
+            const input=document.getElementById(inputId);
+            const meter=document.getElementById(meterId);
+            const pwd=input.value;
+            
+            if(!pwd){
+                meter.classList.add('hid');
+                return;
+            }
+            
+            meter.classList.remove('hid');
+            
+            const d=await ap('strength',{pwd});
+            if(d.ok){
+                const data=d.data;
+                const fill=meter.querySelector('.strength-fill');
+                const label=meter.querySelector('.strength-label');
+                const percent=meter.querySelector('.strength-percent');
+                const feedback=meter.querySelector('.strength-feedback');
+                
+                fill.style.width=data.percentage+'%';
+                label.textContent=data.strength;
+                percent.textContent=data.percentage+'%';
+                
+                const colors={
+                    red:'#ef4444',
+                    orange:'#f97316',
+                    yellow:'#eab308',
+                    green:'#22c55e'
+                };
+                fill.style.background=colors[data.color]||'#4ade80';
+                fill.style.color=colors[data.color]||'#4ade80';
+                label.style.color=colors[data.color]||'#4ade80';
+                
+                if(data.feedback&&data.feedback.length>0){
+                    feedback.innerHTML='<ul>'+data.feedback.map(f=>'<li>'+f+'</li>').join('')+'</ul>';
+                }else{
+                    feedback.innerHTML='<strong>Great password!</strong>';
+                }
+            }
+        }
+        
         async function ap(a,d={}){
             try{
                 const r=await fetch('/api',{
@@ -607,32 +717,32 @@
             const np=document.getElementById('np').value;
             const cp=document.getElementById('cp').value;
             if(!np||!cp){
-                sm('cm','⚠ Password fields required','er');
+                sm('cm','! Password fields required','er');
                 return;
             }
             if(np!==cp){
-                sm('cm','⚠ Passwords do not match','er');
+                sm('cm','! Passwords do not match','er');
                 return;
             }
             if(np.length<4){
-                sm('cm','⚠ Minimum 4 characters required','er');
+                sm('cm','! Minimum 4 characters required','er');
                 return;
             }
             const d=await ap('create',{pwd:np,confirm:cp});
             if(d.ok){
-                sm('cm','✓ Vault encrypted successfully','ok');
+                sm('cm','[+] Vault encrypted successfully','ok');
                 setTimeout(()=>{
                     document.getElementById('cv').classList.add('hid');
                     document.getElementById('lg').classList.remove('hid');
                 },1500);
             }else{
-                sm('cm','⚠ '+d.msg,'er');
+                sm('cm','! '+d.msg,'er');
             }
         }
         async function ul(){
             p=document.getElementById('pw').value;
             if(!p){
-                sm('lm','⚠ Password required','er');
+                sm('lm','! Password required','er');
                 return;
             }
             const btn=event.target;
@@ -646,7 +756,7 @@
                 document.getElementById('ap').classList.remove('hid');
                 ld();
             }else{
-                sm('lm','⚠ Decryption failed - Invalid password','er');
+                sm('lm','! Decryption failed - Invalid password','er');
             }
         }
         async function ld(){
@@ -659,12 +769,12 @@
         function rn(e){
             const c=document.getElementById('es');
             if(!e||e.length===0){
-                c.innerHTML='<div class="em">Vault is empty - No credentials stored yet</div>';
+                c.innerHTML='<div class="em">[ Vault is empty - No credentials stored yet ]</div>';
                 return;
             }
             let h='';
             e.forEach(x=>{
-                h+='<div class="en"><div class="et"><div class="nm">🔑 '+x.n+'</div><div class="bt"><button onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">📋 Copy</button><button onclick="dl(\''+x.id+'\')" class="dg">🗑 Delete</button></div></div>';
+                h+='<div class="en"><div class="et"><div class="nm">[KEY] '+x.n+'</div><div class="bt"><button onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">[ Copy ]</button><button onclick="dl(\''+x.id+'\')" class="dg">[ Del ]</button></div></div>';
                 h+='<div class="fd"><span class="lb">User:</span><span class="vl" onclick="cp(\''+x.u.replace(/'/g,"\\'")+'\')">'+x.u+'</span></div>';
                 h+='<div class="fd"><span class="lb">Pass:</span><span class="vl" onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">'+x.p+'</span></div>';
                 if(x.url)h+='<div class="fd"><span class="lb">URL:</span><span class="vl">'+x.url+'</span></div>';
@@ -701,14 +811,14 @@
                 ur=document.getElementById('ur').value.trim(),
                 nt=document.getElementById('nt').value.trim();
             if(!n||!u||!ps){
-                sm('ms','⚠ Name, username, and password required','er');
+                sm('ms','! Name, username, and password required','er');
                 return;
             }
             const d=await ap('add',{name:n,user:u,pass:ps,url:ur,note:nt});
             if(d.ok){
                 ld();
                 hd('am');
-                sm('ms','✓ Entry encrypted and added','ok');
+                sm('ms','[+] Entry encrypted and added','ok');
                 document.getElementById('nm').value='';
                 document.getElementById('us').value='';
                 document.getElementById('ps').value='';
@@ -717,18 +827,18 @@
             }
         }
         async function dl(i){
-            if(!confirm('⚠ Permanently delete this entry?'))return;
+            if(!confirm('! Permanently delete this entry?'))return;
             const d=await ap('delete',{id:i});
             if(d.ok){
                 ld();
-                sm('ms','✓ Entry deleted','ok');
+                sm('ms','[+] Entry deleted','ok');
             }
         }
         async function gn(){
             const l=parseInt(document.getElementById('ln').value)||16;
             const d=await ap('gen',{len:l});
             if(d.ok){
-                document.getElementById('go').innerHTML='<div class="ms ok"><strong>✓ Generated:</strong><br><span class="vl" onclick="cp(\''+d.data.replace(/'/g,"\\'")+'\')" style="font-size:1.1em;margin-top:10px;display:block;text-align:center">'+d.data+'</span><div style="text-align:center;margin-top:8px;font-size:12px;color:#64748b">Click to copy</div></div>';
+                document.getElementById('go').innerHTML='<div class="ms ok"><strong>[+] Generated:</strong><br><span class="vl" onclick="cp(\''+d.data.replace(/'/g,"\\'")+'\')" style="font-size:1.1em;margin-top:10px;display:block;text-align:center">'+d.data+'</span><div style="text-align:center;margin-top:8px;font-size:12px;color:#64748b">Click to copy</div></div>';
             }
         }
         async function sv(){
@@ -739,15 +849,15 @@
             btn.classList.remove('loading');
             btn.disabled=false;
             if(d.ok){
-                sm('ms','✓ Changes encrypted and saved to vault','ok');
+                sm('ms','[+] Changes encrypted and saved to vault','ok');
             }else{
-                sm('ms','⚠ '+d.msg,'er');
+                sm('ms','! '+d.msg,'er');
             }
         }
         function cp(t){
             navigator.clipboard.writeText(t).then(()=>{
-                sm('ms','✓ Copied to clipboard','ok');
-            }).catch(()=>sm('ms','⚠ Copy failed','er'));
+                sm('ms','[+] Copied to clipboard','ok');
+            }).catch(()=>sm('ms','! Copy failed','er'));
         }
         function sm(i,m,t){
             const el=document.getElementById(i);
@@ -755,7 +865,7 @@
             setTimeout(()=>el.innerHTML='',3000);
         }
         function lo(){
-            if(!confirm('Lock vault and logout?'))return;
+            if(!confirm('[ Lock vault and logout? ]'))return;
             p='';
             vt=[];
             document.getElementById('lg').classList.remove('hid');

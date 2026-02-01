@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -28,6 +30,106 @@ type Vault struct {
 
 var v *Vault
 var ms_pwd string
+
+func calc_pwdS(password string) map[string]interface{} {
+	score := 0
+	feedback := []string{}
+
+	length := len(password)
+
+	if length >= 8 {
+		score += 1
+	}
+	if length >= 12 {
+		score += 1
+	}
+	if length >= 16 {
+		score += 1
+	}
+	if length < 8 {
+		feedback = append(feedback, "Use at least 8 characters")
+	}
+
+	hasLower := regexp.MustCompile(`[a-z]`).MatchString(password)
+	hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(password)
+	hasDigit := regexp.MustCompile(`[0-9]`).MatchString(password)
+	hasSpecial := regexp.MustCompile(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]`).MatchString(password)
+
+	varietyCount := 0
+	if hasLower {
+		varietyCount++
+	} else {
+		feedback = append(feedback, "Add lowercase letters")
+	}
+
+	if hasUpper {
+		varietyCount++
+	} else {
+		feedback = append(feedback, "Add uppercase letters")
+	}
+
+	if hasDigit {
+		varietyCount++
+	} else {
+		feedback = append(feedback, "Add numbers")
+	}
+
+	if hasSpecial {
+		varietyCount++
+	} else {
+		feedback = append(feedback, "Add special characters")
+	}
+
+	score += varietyCount
+
+	regex := []string{"123", "abc", "password", "qwerty", "admin"}
+	lower_pwd := strings.ToLower(password)
+	for _, pattern := range regex {
+		if strings.Contains(lower_pwd, pattern) {
+			score -= 2
+			feedback = append(feedback, "Avoid common patterns")
+			break
+		}
+	}
+
+	if length >= 20 {
+		score += 1
+	}
+
+	var strength string
+	var color string
+	var percentage int
+
+	if score < 0 {
+		score = 0
+	}
+
+	if score <= 2 {
+		strength = "Weak"
+		color = "red"
+		percentage = 25
+	} else if score <= 4 {
+		strength = "Fair"
+		color = "orange"
+		percentage = 50
+	} else if score <= 6 {
+		strength = "Good"
+		color = "yellow"
+		percentage = 75
+	} else {
+		strength = "Strong"
+		color = "green"
+		percentage = 100
+	}
+
+	return map[string]interface{}{
+		"score":      score,
+		"strength":   strength,
+		"color":      color,
+		"percentage": percentage,
+		"feedback":   feedback,
+	}
+}
 
 func handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -60,6 +162,11 @@ func handle(w http.ResponseWriter, r *http.Request) {
 			exists = true
 		}
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "exists": exists})
+
+	case "strength":
+		password, _ := req["password"].(string)
+		result := calc_pwdS(password)
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "data": result})
 
 	case "create":
 		pwd, _ := req["pwd"].(string)
