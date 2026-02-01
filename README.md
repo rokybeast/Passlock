@@ -25,7 +25,6 @@ A secure password manager built with **Rust**, **C**, and **Go**.
 - **Go** - HTTP API server for remote access
 
 ## Directory Structure
-str
 ```
 password-manager/
 ├── Cargo.toml
