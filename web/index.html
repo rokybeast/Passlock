@@ -522,14 +522,14 @@
     <div class="c">
         <div class="hd">
             <h1>PASSLOCK</h1>
-            <p>PASSWORD MANAGER</p>
+            <p>[ PASSWORD MANAGER ]</p>
         </div>
         
         <div id="nv" class="bx hid">
             <h2>No Vault Detected</h2>
             <div class="ms inf">
-                <strong>[INITIALIZATION REQUIRED]</strong><br>
-                No encrypted vault found. Create one to begin securing your credentials.
+                <strong>[ INITIALIZATION REQUIRED ]</strong><br>
+                No vault found. Create one to begin saving your passwords.
             </div>
             <button onclick="shc()">Initialize Vault</button>
             <div class="cli-hint">
@@ -566,8 +566,8 @@
         
         <div id="ap" class="hid">
             <div class="ct">
-                <input type="text" id="qr" class="srch" placeholder="[ Search vault... ]" oninput="sr()">
-                <button onclick="sa()">[ + Add ]</button>
+                <input type="text" id="qr" class="srch" placeholder="Search vault..." oninput="sr()">
+                <button onclick="sa()">[ Add ]</button>
                 <button onclick="sg()" class="sc">[ Gen ]</button>
                 <button onclick="sv()">[ Save ]</button>
                 <button onclick="lo()" class="dg">[ Lock ]</button>
@@ -579,7 +579,7 @@
     
     <div id="am" class="md hid" onclick="if(event.target===this)hd('am')">
         <div class="mb">
-            <div class="mh">[ + New Entry ]</div>
+            <div class="mh">[ New Entry ]</div>
             <input type="text" id="nm" placeholder="Service name (e.g., GitHub)">
             <input type="text" id="us" placeholder="Username / Email">
             <input type="text" id="ps" placeholder="Password" oninput="chkStr('ps','am-str')">
@@ -717,20 +717,20 @@
             const np=document.getElementById('np').value;
             const cp=document.getElementById('cp').value;
             if(!np||!cp){
-                sm('cm','! Password fields required','er');
+                sm('cm','Password fields required !','er');
                 return;
             }
             if(np!==cp){
-                sm('cm','! Passwords do not match','er');
+                sm('cm','Passwords do not match !','er');
                 return;
             }
             if(np.length<4){
-                sm('cm','! Minimum 4 characters required','er');
+                sm('cm','Minimum 4 characters required !','er');
                 return;
             }
             const d=await ap('create',{pwd:np,confirm:cp});
             if(d.ok){
-                sm('cm','[+] Vault encrypted successfully','ok');
+                sm('cm','[+] Vault encrypted successfully.','ok');
                 setTimeout(()=>{
                     document.getElementById('cv').classList.add('hid');
                     document.getElementById('lg').classList.remove('hid');
@@ -742,7 +742,7 @@
         async function ul(){
             p=document.getElementById('pw').value;
             if(!p){
-                sm('lm','! Password required','er');
+                sm('lm','Password required !','er');
                 return;
             }
             const btn=event.target;
@@ -756,7 +756,7 @@
                 document.getElementById('ap').classList.remove('hid');
                 ld();
             }else{
-                sm('lm','! Decryption failed - Invalid password','er');
+                sm('lm','Decryption failed - Invalid password !','er');
             }
         }
         async function ld(){
@@ -769,7 +769,7 @@
         function rn(e){
             const c=document.getElementById('es');
             if(!e||e.length===0){
-                c.innerHTML='<div class="em">[ Vault is empty - No credentials stored yet ]</div>';
+                c.innerHTML='<div class="em">[ Vault is empty ]</div>';
                 return;
             }
             let h='';
@@ -811,14 +811,14 @@
                 ur=document.getElementById('ur').value.trim(),
                 nt=document.getElementById('nt').value.trim();
             if(!n||!u||!ps){
-                sm('ms','! Name, username, and password required','er');
+                sm('ms','Name, username, and password required !','er');
                 return;
             }
             const d=await ap('add',{name:n,user:u,pass:ps,url:ur,note:nt});
             if(d.ok){
                 ld();
                 hd('am');
-                sm('ms','[+] Entry encrypted and added','ok');
+                sm('ms','[+] Entry encrypted and added.','ok');
                 document.getElementById('nm').value='';
                 document.getElementById('us').value='';
                 document.getElementById('ps').value='';
@@ -827,11 +827,11 @@
             }
         }
         async function dl(i){
-            if(!confirm('! Permanently delete this entry?'))return;
+            if(!confirm('Permanently delete this entry?'))return;
             const d=await ap('delete',{id:i});
             if(d.ok){
                 ld();
-                sm('ms','[+] Entry deleted','ok');
+                sm('ms','[+] Entry deleted.','ok');
             }
         }
         async function gn(){
@@ -849,15 +849,15 @@
             btn.classList.remove('loading');
             btn.disabled=false;
             if(d.ok){
-                sm('ms','[+] Changes encrypted and saved to vault','ok');
+                sm('ms','[+] Changes encrypted and saved to vault.','ok');
             }else{
-                sm('ms','! '+d.msg,'er');
+                sm('ms',+d.msg,' !','er');
             }
         }
         function cp(t){
             navigator.clipboard.writeText(t).then(()=>{
-                sm('ms','[+] Copied to clipboard','ok');
-            }).catch(()=>sm('ms','! Copy failed','er'));
+                sm('ms','[+] Copied to clipboard.','ok');
+            }).catch(()=>sm('ms','Copy failed !','er'));
         }
         function sm(i,m,t){
             const el=document.getElementById(i);
@@ -865,7 +865,7 @@
             setTimeout(()=>el.innerHTML='',3000);
         }
         function lo(){
-            if(!confirm('[ Lock vault and logout? ]'))return;
+            if(!confirm('Lock vault and logout ?'))return;
             p='';
             vt=[];
             document.getElementById('lg').classList.remove('hid');
