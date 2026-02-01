@@ -60,11 +60,11 @@ struct App {
     search_query: String,
     gen_pwd: String,
     scroll_offset: usize,
-    nEntry_name: String,
-    nEntry_user: String,
-    nEntry_pass: String,
-    nEntry_url: String,
-    nEntry_notes: String,
+    n_entry_name: String,
+    n_entry_user: String,
+    n_entry_pass: String,
+    n_entry_url: String,
+    n_entry_notes: String,
     add_fi: usize,
 }
 
@@ -92,11 +92,11 @@ impl App {
             search_query: String::new(),
             gen_pwd: String::new(),
             scroll_offset: 0,
-            nEntry_name: String::new(),
-            nEntry_user: String::new(),
-            nEntry_pass: String::new(),
-            nEntry_url: String::new(),
-            nEntry_notes: String::new(),
+            n_entry_name: String::new(),
+            n_entry_user: String::new(),
+            n_entry_pass: String::new(),
+            n_entry_url: String::new(),
+            n_entry_notes: String::new(),
             add_fi: 0,
         }
     }
@@ -159,18 +159,18 @@ impl App {
     }
 
     fn add_entry(&mut self) {
-        if self.nEntry_name.is_empty() || self.nEntry_user.is_empty() || self.nEntry_pass.is_empty() {
+        if self.n_entry_name.is_empty() || self.n_entry_user.is_empty() || self.n_entry_pass.is_empty() {
             self.set_msg("Name, Username, and Password are required!", MessageType::Error);
             return;
         }
 
         let entry = Entry {
             id: crate::generate_uuid(),
-            n: self.nEntry_name.clone(),
-            u: self.nEntry_user.clone(),
-            p: self.nEntry_pass.clone(),
-            url: if self.nEntry_url.is_empty() { None } else { Some(self.nEntry_url.clone()) },
-            nt: if self.nEntry_notes.is_empty() { None } else { Some(self.nEntry_notes.clone()) },
+            n: self.n_entry_name.clone(),
+            u: self.n_entry_user.clone(),
+            p: self.n_entry_pass.clone(),
+            url: if self.n_entry_url.is_empty() { None } else { Some(self.n_entry_url.clone()) },
+            nt: if self.n_entry_notes.is_empty() { None } else { Some(self.n_entry_notes.clone()) },
             t: crate::get_timestamp(),
         };
 
@@ -231,11 +231,11 @@ impl App {
     }
 
     fn ca_form(&mut self) {
-        self.nEntry_name.clear();
-        self.nEntry_user.clear();
-        self.nEntry_pass.clear();
-        self.nEntry_url.clear();
-        self.nEntry_notes.clear();
+        self.n_entry_name.clear();
+        self.n_entry_user.clear();
+        self.n_entry_pass.clear();
+        self.n_entry_url.clear();
+        self.n_entry_notes.clear();
         self.add_fi = 0;
     }
 }
@@ -730,7 +730,7 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     } else {
         Style::default().fg(Color::Rgb(140, 150, 160))
     };
-    let name_field = Paragraph::new(format!("Name: {}", app.nEntry_name))
+    let name_field = Paragraph::new(format!("Name: {}", app.n_entry_name))
         .style(name_style);
     f.render_widget(name_field, chunks[1]);
 
@@ -739,7 +739,7 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     } else {
         Style::default().fg(Color::Rgb(140, 150, 160))
     };
-    let user_field = Paragraph::new(format!("Username: {}", app.nEntry_user))
+    let user_field = Paragraph::new(format!("Username: {}", app.n_entry_user))
         .style(user_style);
     f.render_widget(user_field, chunks[2]);
 
@@ -748,12 +748,12 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     } else {
         Style::default().fg(Color::Rgb(140, 150, 160))
     };
-    let pass_field = Paragraph::new(format!("Password: {}", app.nEntry_pass))
+    let pass_field = Paragraph::new(format!("Password: {}", app.n_entry_pass))
         .style(pass_style);
     f.render_widget(pass_field, chunks[3]);
 
-    if !app.nEntry_pass.is_empty() && app.add_fi == 2 {
-        let strength = crypto::calc_pwd_strength(&app.nEntry_pass);
+    if !app.n_entry_pass.is_empty() && app.add_fi == 2 {
+        let strength = crypto::calc_pwd_strength(&app.n_entry_pass);
         
         let strength_color = match strength.strength.as_str() {
             "Weak" => Color::Rgb(180, 80, 80),
@@ -792,7 +792,7 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     } else {
         Style::default().fg(Color::Rgb(140, 150, 160))
     };
-    let url_field = Paragraph::new(format!("URL (optional): {}", app.nEntry_url))
+    let url_field = Paragraph::new(format!("URL (optional): {}", app.n_entry_url))
         .style(url_style);
     f.render_widget(url_field, chunks[6]);
 
@@ -801,7 +801,7 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     } else {
         Style::default().fg(Color::Rgb(140, 150, 160))
     };
-    let notes = Paragraph::new(format!("Notes (optional):\n{}", app.nEntry_notes))
+    let notes = Paragraph::new(format!("Notes (optional):\n{}", app.n_entry_notes))
         .style(notes_style)
         .wrap(Wrap { trim: false });
     f.render_widget(notes, chunks[7]);
@@ -1125,21 +1125,21 @@ fn handle_api(app: &mut App, key: KeyCode) {
     match key {
         KeyCode::Char(c) => {
             match app.add_fi {
-                0 => app.nEntry_name.push(c),
-                1 => app.nEntry_user.push(c),
-                2 => app.nEntry_pass.push(c),
-                3 => app.nEntry_url.push(c),
-                4 => app.nEntry_notes.push(c),
+                0 => app.n_entry_name.push(c),
+                1 => app.n_entry_user.push(c),
+                2 => app.n_entry_pass.push(c),
+                3 => app.n_entry_url.push(c),
+                4 => app.n_entry_notes.push(c),
                 _ => {}
             }
         }
         KeyCode::Backspace => {
             match app.add_fi {
-                0 => { app.nEntry_name.pop(); }
-                1 => { app.nEntry_user.pop(); }
-                2 => { app.nEntry_pass.pop(); }
-                3 => { app.nEntry_url.pop(); }
-                4 => { app.nEntry_notes.pop(); }
+                0 => { app.n_entry_name.pop(); }
+                1 => { app.n_entry_user.pop(); }
+                2 => { app.n_entry_pass.pop(); }
+                3 => { app.n_entry_url.pop(); }
+                4 => { app.n_entry_notes.pop(); }
                 _ => {}
             }
         }
@@ -1148,7 +1148,7 @@ fn handle_api(app: &mut App, key: KeyCode) {
         }
         KeyCode::Enter => {
             if app.add_fi == 4 {
-                app.nEntry_notes.push('\n');
+                app.n_entry_notes.push('\n');
             } else {
                 app.add_entry();
             }
@@ -1222,14 +1222,14 @@ fn handle_di(app: &mut App, key: KeyCode) {
     }
 }
 
-pub fn clr() {}
-pub fn banner() {}
-pub fn info(_: &str) {}
-pub fn ok(_: &str) {}
-pub fn err(_: &str) {}
-pub fn warn(_: &str) {}
-pub fn sep() {}
-pub fn menu() {}
-pub fn inp(_: &str) -> String { String::new() }
-pub fn sec_inp(_: &str) -> String { String::new() }
-pub fn pause() {}
+pub fn _clr() {}
+pub fn _banner() {}
+pub fn _info(_: &str) {}
+pub fn _ok(_: &str) {}
+pub fn _err(_: &str) {}
+pub fn _warn(_: &str) {}
+pub fn _sep() {}
+pub fn _menu() {}
+pub fn _inp(_: &str) -> String { String::new() }
+pub fn _sec_inp(_: &str) -> String { String::new() }
+pub fn _pause() {}
