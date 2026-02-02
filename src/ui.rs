@@ -15,6 +15,7 @@ use ratatui::{
     Frame, Terminal,
 };
 use std::io;
+use std::collections::HashMap;
 
 #[derive(Clone, PartialEq)]
 enum Screen {
@@ -27,6 +28,7 @@ enum Screen {
     SearchPassword,
     GeneratePassword,
     DeletePassword,
+    FilterByTag,
 }
 
 #[allow(dead_code)]
@@ -40,6 +42,7 @@ enum InputField {
     Pass,
     Url,
     Notes,
+    Tags,
     Search,
     Length,
     DeleteIndex,
@@ -65,7 +68,12 @@ struct App {
     n_entry_pass: String,
     n_entry_url: String,
     n_entry_notes: String,
+    n_entry_tags: Vec<String>,
+    tag_input: String,
     add_fi: usize,
+    all_tags: Vec<(String, usize)>,
+    selected_tag_filter: usize,
+    active_tag_filter: Option<String>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -97,7 +105,12 @@ impl App {
             n_entry_pass: String::new(),
             n_entry_url: String::new(),
             n_entry_notes: String::new(),
+            n_entry_tags: Vec::new(),
+            tag_input: String::new(),
             add_fi: 0,
+            all_tags: Vec::new(),
+            selected_tag_filter: 0,
+            active_tag_filter: None,
         }
     }
 
@@ -151,6 +164,7 @@ impl App {
                 self.input_buffer.clear();
                 self.input_field = InputField::None;
                 self.set_msg("Vault unlocked!", MessageType::Success);
+                self.load_all_tags();
             }
             Err(_) => {
                 self.set_msg("Wrong password!", MessageType::Error);
@@ -172,6 +186,7 @@ impl App {
             url: if self.n_entry_url.is_empty() { None } else { Some(self.n_entry_url.clone()) },
             nt: if self.n_entry_notes.is_empty() { None } else { Some(self.n_entry_notes.clone()) },
             t: crate::get_timestamp(),
+            tags: self.n_entry_tags.clone(),
         };
 
         if let Some(ref mut vault) = self.vault {
@@ -183,6 +198,7 @@ impl App {
                 self.set_msg("Password added successfully!", MessageType::Success);
                 self.ca_form();
                 self.screen = Screen::MainMenu;
+                self.load_all_tags();
             }
         }
     }
@@ -197,6 +213,7 @@ impl App {
                 } else {
                     self.set_msg(&format!("Deleted '{}'", removed.n), MessageType::Success);
                     self.screen = Screen::MainMenu;
+                    self.load_all_tags();
                 }
             } else {
                 self.set_msg("Invalid entry number!", MessageType::Error);
@@ -214,6 +231,7 @@ impl App {
                     e.n.to_lowercase().contains(&query)
                         || e.u.to_lowercase().contains(&query)
                         || e.url.as_ref().map_or(false, |u| u.to_lowercase().contains(&query))
+                        || e.tags.iter().any(|t| t.to_lowercase().contains(&query))
                 })
                 .cloned()
                 .collect();
@@ -236,7 +254,55 @@ impl App {
         self.n_entry_pass.clear();
         self.n_entry_url.clear();
         self.n_entry_notes.clear();
+        self.n_entry_tags.clear();
+        self.tag_input.clear();
         self.add_fi = 0;
+    }
+
+    fn add_tag(&mut self) {
+        let tag = self.tag_input.trim().to_lowercase();
+        if !tag.is_empty() && !self.n_entry_tags.contains(&tag.to_string()) {
+            self.n_entry_tags.push(tag.to_string());
+            self.tag_input.clear();
+        }
+    }
+
+    fn remove_tag(&mut self, index: usize) {
+        if index < self.n_entry_tags.len() {
+            self.n_entry_tags.remove(index);
+        }
+    }
+
+    fn load_all_tags(&mut self) {
+        if let Some(ref vault) = self.vault {
+            let mut tag_map: HashMap<String, usize> = HashMap::new();
+            
+            for entry in &vault.e {
+                for tag in &entry.tags {
+                    *tag_map.entry(tag.clone()).or_insert(0) += 1;
+                }
+            }
+            
+            self.all_tags = tag_map.into_iter().collect();
+            self.all_tags.sort_by(|a, b| b.1.cmp(&a.1));
+        }
+    }
+
+    fn filter_by_tag(&mut self, tag: Option<String>) {
+        self.active_tag_filter = tag.clone();
+        
+        if let Some(ref vault) = self.vault {
+            if let Some(filter_tag) = tag {
+                self.entry_disp = vault
+                    .e
+                    .iter()
+                    .filter(|e| e.tags.contains(&filter_tag))
+                    .cloned()
+                    .collect();
+            } else {
+                self.entry_disp = vault.e.clone();
+            }
+        }
     }
 }
 
@@ -290,6 +356,7 @@ fn run_app<B: ratatui::backend::Backend>(
                     Screen::SearchPassword => handle_si(app, key.code),
                     Screen::GeneratePassword => handle_gi(app, key.code),
                     Screen::DeletePassword => handle_di(app, key.code),
+                    Screen::FilterByTag => handle_tfi(app, key.code),
                 }
             }
         }
@@ -309,6 +376,7 @@ fn ui(f: &mut Frame, app: &App) {
         Screen::SearchPassword => draw_search_pwd(f, size, app),
         Screen::GeneratePassword => draw_gen_pwd(f, size, app),
         Screen::DeletePassword => draw_del_pwd(f, size, app),
+        Screen::FilterByTag => draw_filter_tags(f, size, app),
     }
 }
 
@@ -539,7 +607,8 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
     f.render_widget(block, area);
 
     let vault_info = if let Some(ref vault) = app.vault {
-        format!("Vault unlocked  |  {} passwords stored", vault.e.len())
+        let tag_count = app.all_tags.len();
+        format!("Vault unlocked  |  {} passwords  |  {} tags", vault.e.len(), tag_count)
     } else {
         "No vault loaded".to_string()
     };
@@ -553,6 +622,7 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         "View All Passwords",
         "Add New Password",
         "Search Passwords",
+        "Filter by Tag",
         "Generate Password",
         "Delete Password",
         "Exit",
@@ -673,6 +743,16 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                         ]));
                     }
 
+                    if !entry.tags.is_empty() {
+                        lines.push(Line::from(vec![
+                            Span::raw("    Tags: "),
+                            Span::styled(
+                                entry.tags.join(", "),
+                                Style::default().fg(Color::Rgb(120, 180, 140))
+                            ),
+                        ]));
+                    }
+
                     lines.push(Line::from(""));
 
                     ListItem::new(lines)
@@ -693,7 +773,7 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
 }
 
 fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
-    let area = centered_rect(70, 75, size);
+    let area = centered_rect(75, 82, size);
     
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -706,6 +786,8 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
             Constraint::Length(2),
             Constraint::Length(2),
             Constraint::Length(2),
+            Constraint::Length(3),
+            Constraint::Length(3),
             Constraint::Length(4),
             Constraint::Min(1),
             Constraint::Length(2),
@@ -796,7 +878,36 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         .style(url_style);
     f.render_widget(url_field, chunks[6]);
 
-    let notes_style = if app.add_fi == 4 {
+    let tags_input_style = if app.add_fi == 4 {
+        Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::Rgb(140, 150, 160))
+    };
+    let tags_input_text = if app.add_fi == 4 {
+        format!("Tags: {} (Enter to add, Backspace to remove)", app.tag_input)
+    } else {
+        "Tags: (Tab to focus)".to_string()
+    };
+    let tags_input = Paragraph::new(tags_input_text)
+        .style(tags_input_style)
+        .wrap(Wrap { trim: true });
+    f.render_widget(tags_input, chunks[7]);
+
+    if !app.n_entry_tags.is_empty() {
+        let tags_display = app.n_entry_tags
+            .iter()
+            .enumerate()
+            .map(|(i, tag)| format!("[{}] {}", i + 1, tag))
+            .collect::<Vec<_>>()
+            .join("  ");
+        
+        let tags_widget = Paragraph::new(format!("Added: {}", tags_display))
+            .style(Style::default().fg(Color::Rgb(120, 180, 140)))
+            .wrap(Wrap { trim: true });
+        f.render_widget(tags_widget, chunks[8]);
+    }
+
+    let notes_style = if app.add_fi == 5 {
         Style::default().fg(Color::Rgb(120, 180, 140)).add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::Rgb(140, 150, 160))
@@ -804,7 +915,7 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     let notes = Paragraph::new(format!("Notes (optional):\n{}", app.n_entry_notes))
         .style(notes_style)
         .wrap(Wrap { trim: false });
-    f.render_widget(notes, chunks[7]);
+    f.render_widget(notes, chunks[9]);
 
     if !app.msg.is_empty() {
         let msg_style = match app.msg_type {
@@ -816,13 +927,103 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         let msg = Paragraph::new(app.msg.as_str())
             .style(msg_style)
             .alignment(Alignment::Center);
-        f.render_widget(msg, chunks[8]);
+        f.render_widget(msg, chunks[10]);
     }
 
-    let help = Paragraph::new("Tab: Next field | Enter: Save | Esc: Cancel")
+    let help = Paragraph::new("Tab: Next | Enter: Add tag/Save | 1-9: Remove tag | Esc: Cancel")
         .style(Style::default().fg(Color::Rgb(90, 100, 110)))
         .alignment(Alignment::Center);
-    f.render_widget(help, chunks[9]);
+    f.render_widget(help, chunks[11]);
+}
+
+fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
+    let area = centered_rect(80, 70, size);
+    
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(2),
+            Constraint::Min(3),
+            Constraint::Length(2),
+            Constraint::Length(2),
+        ])
+        .split(area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Rgb(90, 100, 130)))
+        .title(" FILTER BY TAG ")
+        .title_alignment(Alignment::Center);
+
+    f.render_widget(block, area);
+
+    let title = if let Some(ref tag) = app.active_tag_filter {
+        format!("Filtering by: {} ({} entries)", tag, app.entry_disp.len())
+    } else {
+        "Select a tag to filter".to_string()
+    };
+    
+    let title_widget = Paragraph::new(title)
+        .style(Style::default().fg(Color::Rgb(140, 160, 180)))
+        .alignment(Alignment::Center);
+    f.render_widget(title_widget, chunks[0]);
+
+    if app.all_tags.is_empty() {
+        let empty = Paragraph::new("No tags available. Add tags to your passwords first!")
+            .style(Style::default().fg(Color::Rgb(100, 110, 120)))
+            .alignment(Alignment::Center);
+        f.render_widget(empty, chunks[1]);
+    } else {
+        let mut items = vec![ListItem::new(Line::from(vec![
+            Span::styled(
+                if app.selected_tag_filter == 0 { " > " } else { "   " },
+                Style::default().fg(Color::Rgb(120, 180, 140))
+            ),
+            Span::styled(
+                format!("All ({} total)", app.vault.as_ref().map_or(0, |v| v.e.len())),
+                if app.selected_tag_filter == 0 {
+                    Style::default().fg(Color::Rgb(180, 200, 220)).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::Rgb(140, 150, 160))
+                }
+            ),
+        ]))];
+
+        for (idx, (tag, count)) in app.all_tags.iter().enumerate() {
+            let is_selected = idx + 1 == app.selected_tag_filter;
+            let prefix = if is_selected { " > " } else { "   " };
+            
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled(prefix, Style::default().fg(Color::Rgb(120, 180, 140))),
+                Span::styled(
+                    format!("{} ({})", tag, count),
+                    if is_selected {
+                        Style::default().fg(Color::Rgb(180, 200, 220)).add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::Rgb(140, 150, 160))
+                    }
+                ),
+            ])));
+        }
+
+        let list = List::new(items)
+            .block(Block::default().borders(Borders::NONE));
+        
+        f.render_widget(list, chunks[1]);
+    }
+
+    if app.active_tag_filter.is_some() {
+        let filter_info = Paragraph::new("Press V to view filtered passwords")
+            .style(Style::default().fg(Color::Rgb(120, 180, 140)))
+            .alignment(Alignment::Center);
+        f.render_widget(filter_info, chunks[2]);
+    }
+
+    let help = Paragraph::new("↑/↓: Navigate | Enter: Apply Filter | V: View | Esc: Back")
+        .style(Style::default().fg(Color::Rgb(90, 100, 110)))
+        .alignment(Alignment::Center);
+    f.render_widget(help, chunks[3]);
 }
 
 fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
@@ -847,7 +1048,7 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
 
     f.render_widget(block, area);
 
-    let title = Paragraph::new("Search by name, username, or URL")
+    let title = Paragraph::new("Search by name, username, URL, or tags")
         .style(Style::default().fg(Color::Rgb(140, 160, 180)))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
@@ -866,7 +1067,7 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
             .entry_disp
             .iter()
             .map(|entry| {
-                let lines = vec![
+                let mut lines = vec![
                     Line::from(vec![
                         Span::styled(&entry.n, Style::default().fg(Color::Rgb(140, 180, 160)).add_modifier(Modifier::BOLD)),
                     ]),
@@ -878,8 +1079,19 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
                         Span::raw("  Pass: "),
                         Span::styled(&entry.p, Style::default().fg(Color::Rgb(140, 150, 180))),
                     ]),
-                    Line::from(""),
                 ];
+                
+                if !entry.tags.is_empty() {
+                    lines.push(Line::from(vec![
+                        Span::raw("  Tags: "),
+                        Span::styled(
+                            entry.tags.join(", "),
+                            Style::default().fg(Color::Rgb(120, 180, 140))
+                        ),
+                    ]));
+                }
+                
+                lines.push(Line::from(""));
 
                 ListItem::new(lines)
             })
@@ -1074,7 +1286,7 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
             }
         }
         KeyCode::Down => {
-            if app.selected_menu < 5 {
+            if app.selected_menu < 6 {
                 app.selected_menu += 1;
             }
         }
@@ -1092,15 +1304,20 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
                     app.entry_disp.clear();
                 }
                 3 => {
+                    app.screen = Screen::FilterByTag;
+                    app.selected_tag_filter = 0;
+                    app.filter_by_tag(None);
+                }
+                4 => {
                     app.screen = Screen::GeneratePassword;
                     app.input_buffer = String::from("16");
                     app.gen_pwd.clear();
                 }
-                4 => {
+                5 => {
                     app.screen = Screen::DeletePassword;
                     app.input_buffer.clear();
                 }
-                5 => return true,
+                6 => return true,
                 _ => {}
             }
         }
@@ -1129,7 +1346,15 @@ fn handle_api(app: &mut App, key: KeyCode) {
                 1 => app.n_entry_user.push(c),
                 2 => app.n_entry_pass.push(c),
                 3 => app.n_entry_url.push(c),
-                4 => app.n_entry_notes.push(c),
+                4 => {
+                    if !c.is_ascii_digit() {
+                        app.tag_input.push(c);
+                    } else if let Some(digit) = c.to_digit(10) {
+                        let idx = (digit as usize).saturating_sub(1);
+                        app.remove_tag(idx);
+                    }
+                }
+                5 => app.n_entry_notes.push(c),
                 _ => {}
             }
         }
@@ -1139,15 +1364,24 @@ fn handle_api(app: &mut App, key: KeyCode) {
                 1 => { app.n_entry_user.pop(); }
                 2 => { app.n_entry_pass.pop(); }
                 3 => { app.n_entry_url.pop(); }
-                4 => { app.n_entry_notes.pop(); }
+                4 => { 
+                    if app.tag_input.is_empty() && !app.n_entry_tags.is_empty() {
+                        app.n_entry_tags.pop();
+                    } else {
+                        app.tag_input.pop();
+                    }
+                }
+                5 => { app.n_entry_notes.pop(); }
                 _ => {}
             }
         }
         KeyCode::Tab => {
-            app.add_fi = (app.add_fi + 1) % 5;
+            app.add_fi = (app.add_fi + 1) % 6;
         }
         KeyCode::Enter => {
             if app.add_fi == 4 {
+                app.add_tag();
+            } else if app.add_fi == 5 {
                 app.n_entry_notes.push('\n');
             } else {
                 app.add_entry();
@@ -1216,6 +1450,39 @@ fn handle_di(app: &mut App, key: KeyCode) {
             }
         }
         KeyCode::Esc => {
+            app.screen = Screen::MainMenu;
+        }
+        _ => {}
+    }
+}
+
+fn handle_tfi(app: &mut App, key: KeyCode) {
+    match key {
+        KeyCode::Up => {
+            if app.selected_tag_filter > 0 {
+                app.selected_tag_filter -= 1;
+            }
+        }
+        KeyCode::Down => {
+            if app.selected_tag_filter < app.all_tags.len() {
+                app.selected_tag_filter += 1;
+            }
+        }
+        KeyCode::Enter => {
+            if app.selected_tag_filter == 0 {
+                app.filter_by_tag(None);
+            } else if app.selected_tag_filter <= app.all_tags.len() {
+                let tag = app.all_tags[app.selected_tag_filter - 1].0.clone();
+                app.filter_by_tag(Some(tag));
+            }
+        }
+        KeyCode::Char('v') | KeyCode::Char('V') => {
+            if app.active_tag_filter.is_some() && !app.entry_disp.is_empty() {
+                app.screen = Screen::ViewPasswords;
+            }
+        }
+        KeyCode::Esc => {
+            app.active_tag_filter = None;
             app.screen = Screen::MainMenu;
         }
         _ => {}
