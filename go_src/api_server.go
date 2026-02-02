@@ -14,13 +14,14 @@ import (
 )
 
 type Entry struct {
-	ID  string `json:"id"`
-	N   string `json:"n"`
-	U   string `json:"u"`
-	P   string `json:"p"`
-	Url string `json:"url,omitempty"`
-	Nt  string `json:"nt,omitempty"`
-	T   uint64 `json:"t"`
+	ID   string   `json:"id"`
+	N    string   `json:"n"`
+	U    string   `json:"u"`
+	P    string   `json:"p"`
+	Url  string   `json:"url,omitempty"`
+	Nt   string   `json:"nt,omitempty"`
+	T    uint64   `json:"t"`
+	Tags []string `json:"tags,omitempty"`
 }
 
 type Vault struct {
@@ -265,6 +266,55 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "data": v.E})
 
+	case "tags":
+		if v == nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "not unlocked"})
+			return
+		}
+
+		tagMap := make(map[string]int)
+		for _, entry := range v.E {
+			for _, tag := range entry.Tags {
+				tagMap[tag]++
+			}
+		}
+
+		type TagCount struct {
+			Tag   string `json:"tag"`
+			Count int    `json:"count"`
+		}
+
+		tags := []TagCount{}
+		for tag, count := range tagMap {
+			tags = append(tags, TagCount{Tag: tag, Count: count})
+		}
+
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "data": tags})
+
+	case "filter":
+		if v == nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "not unlocked"})
+			return
+		}
+
+		tag, _ := req["tag"].(string)
+		if tag == "" {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "data": v.E})
+			return
+		}
+
+		filtered := []Entry{}
+		for _, entry := range v.E {
+			for _, t := range entry.Tags {
+				if t == tag {
+					filtered = append(filtered, entry)
+					break
+				}
+			}
+		}
+
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "data": filtered})
+
 	case "add":
 		if v == nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "not unlocked"})
@@ -277,19 +327,29 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		url, _ := req["url"].(string)
 		note, _ := req["note"].(string)
 
+		var tags []string
+		if tagsInterface, ok := req["tags"].([]interface{}); ok {
+			for _, t := range tagsInterface {
+				if tagStr, ok := t.(string); ok {
+					tags = append(tags, tagStr)
+				}
+			}
+		}
+
 		if name == "" || user == "" || pass == "" {
 			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "name, user, pass required"})
 			return
 		}
 
 		e := Entry{
-			ID:  fmt.Sprintf("%d", time.Now().UnixNano()),
-			N:   name,
-			U:   user,
-			P:   pass,
-			Url: url,
-			Nt:  note,
-			T:   uint64(time.Now().Unix()),
+			ID:   fmt.Sprintf("%d", time.Now().UnixNano()),
+			N:    name,
+			U:    user,
+			P:    pass,
+			Url:  url,
+			Nt:   note,
+			T:    uint64(time.Now().Unix()),
+			Tags: tags,
 		}
 
 		v.E = append(v.E, e)
