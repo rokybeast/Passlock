@@ -514,6 +514,98 @@
             border-radius:50%;
             animation:spin 0.6s linear infinite;
         }
+        
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(74, 222, 128, 0.2);
+        }
+        
+        .tag-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(74, 222, 128, 0.1);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            color: #4ade80;
+        }
+        
+        .tag-item:hover {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: #4ade80;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 222, 128, 0.2);
+        }
+        
+        .tag-item.active {
+            background: rgba(74, 222, 128, 0.3);
+            border-color: #4ade80;
+            color: #fff;
+            font-weight: 600;
+        }
+        
+        .tag-count {
+            background: rgba(30, 41, 59, 0.5);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        
+        .entry-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 8px 0;
+            border-top: 1px solid rgba(74, 222, 128, 0.1);
+        }
+        
+        .entry-tag {
+            padding: 3px 8px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            font-size: 11px;
+            color: #3b82f6;
+        }
+        
+        .clear-filter {
+            padding: 6px 12px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            color: #ef4444;
+        }
+        
+        .clear-filter:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+        }
+        
+        .filter-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 8px;
+            border-left: 4px solid #4ade80;
+        }
     </style>
 </head>
 <body>
@@ -567,11 +659,20 @@
         <div id="ap" class="hid">
             <div class="ct">
                 <input type="text" id="qr" class="srch" placeholder="Search vault..." oninput="sr()">
-                <button onclick="sa()">[ Add ]</button>
-                <button onclick="sg()" class="sc">[ Gen ]</button>
-                <button onclick="sv()">[ Save ]</button>
-                <button onclick="lo()" class="dg">[ Lock ]</button>
+                <button onclick="sa()">Add</button>
+                <button onclick="sg()" class="sc">Gen</button>
+                <button onclick="sv()">Save</button>
+                <button onclick="lo()" class="dg">Lock</button>
             </div>
+            
+            <div id="tags-ct" class="tags-container hid">
+            </div>
+            
+            <div id="filter-info" class="filter-info hid">
+                <span>Filtering by tag: <strong id="current-tag"></strong></span>
+                <div class="clear-filter" onclick="clearFilter()">Clear Filter</div>
+            </div>
+            
             <div id="ms"></div>
             <div id="es"></div>
         </div>
@@ -594,6 +695,7 @@
                 <div class="strength-feedback"></div>
             </div>
             <input type="text" id="ur" placeholder="URL (optional)">
+            <input type="text" id="tg" placeholder="Tags (comma separated, optional)">
             <textarea id="nt" placeholder="Additional notes (optional)" rows="3"></textarea>
             <button onclick="ad()">[ Save Entry ]</button>
             <button onclick="hd('am')" class="sc">[ X Cancel ]</button>
@@ -639,7 +741,7 @@
             canvas.height=window.innerHeight;
         });
         
-        let p='',vt=[];
+        let p='',vt=[],currentTag='';
         
         async function chkStr(inputId, meterId){
             const input=document.getElementById(inputId);
@@ -695,6 +797,7 @@
                 return{ok:false,msg:'network error'};
             }
         }
+        
         async function chk(){
             const d=await ap('check');
             if(d.ok){
@@ -705,14 +808,17 @@
                 }
             }
         }
+        
         function shc(){
             document.getElementById('nv').classList.add('hid');
             document.getElementById('cv').classList.remove('hid');
         }
+        
         function bk(){
             document.getElementById('cv').classList.add('hid');
             document.getElementById('nv').classList.remove('hid');
         }
+        
         async function cr(){
             const np=document.getElementById('np').value;
             const cp=document.getElementById('cp').value;
@@ -739,6 +845,7 @@
                 sm('cm','! '+d.msg,'er');
             }
         }
+        
         async function ul(){
             p=document.getElementById('pw').value;
             if(!p){
@@ -755,17 +862,25 @@
                 document.getElementById('lg').classList.add('hid');
                 document.getElementById('ap').classList.remove('hid');
                 ld();
+                loadTags();
             }else{
                 sm('lm','Decryption failed - Invalid password !','er');
             }
         }
+        
         async function ld(){
-            const d=await ap('list');
+            let d;
+            if(currentTag){
+                d=await ap('filter',{tag:currentTag});
+            }else{
+                d=await ap('list');
+            }
             if(d.ok){
                 vt=d.data||[];
                 rn(vt);
             }
         }
+        
         function rn(e){
             const c=document.getElementById('es');
             if(!e||e.length===0){
@@ -774,66 +889,138 @@
             }
             let h='';
             e.forEach(x=>{
-                h+='<div class="en"><div class="et"><div class="nm">[KEY] '+x.n+'</div><div class="bt"><button onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">[ Copy ]</button><button onclick="dl(\''+x.id+'\')" class="dg">[ Del ]</button></div></div>';
+                h+='<div class="en"><div class="et"><div class="nm">[KEY] '+x.n+'</div><div class="bt"><button onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">Copy</button><button onclick="dl(\''+x.id+'\')" class="dg">Delete</button></div></div>';
                 h+='<div class="fd"><span class="lb">User:</span><span class="vl" onclick="cp(\''+x.u.replace(/'/g,"\\'")+'\')">'+x.u+'</span></div>';
                 h+='<div class="fd"><span class="lb">Pass:</span><span class="vl" onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">'+x.p+'</span></div>';
                 if(x.url)h+='<div class="fd"><span class="lb">URL:</span><span class="vl">'+x.url+'</span></div>';
                 if(x.nt)h+='<div class="fd"><span class="lb">Notes:</span><span class="vl">'+x.nt+'</span></div>';
+                if(x.tags&&x.tags.length>0){
+                    h+='<div class="entry-tags">';
+                    x.tags.forEach(tag=>{
+                        h+='<span class="entry-tag">'+tag+'</span>';
+                    });
+                    h+='</div>';
+                }
                 h+='</div>';
             });
             c.innerHTML=h;
         }
+        
+        async function loadTags(){
+            const d=await ap('tags');
+            if(d.ok){
+                const tagsContainer=document.getElementById('tags-ct');
+                const tags=d.data||[];
+                
+                if(tags.length===0){
+                    tagsContainer.classList.add('hid');
+                    return;
+                }
+                
+                tagsContainer.classList.remove('hid');
+                let html='';
+                tags.forEach(tag=>{
+                    const activeClass=currentTag===tag.tag?'active':'';
+                    html+=`<div class="tag-item ${activeClass}" onclick="filterByTag('${tag.tag}')">
+                        <span>${tag.tag}</span>
+                        <span class="tag-count">${tag.count}</span>
+                    </div>`;
+                });
+                tagsContainer.innerHTML=html;
+                
+                // Update filter info
+                const filterInfo=document.getElementById('filter-info');
+                if(currentTag){
+                    filterInfo.classList.remove('hid');
+                    document.getElementById('current-tag').textContent=currentTag;
+                }else{
+                    filterInfo.classList.add('hid');
+                }
+            }
+        }
+        
+        async function filterByTag(tag){
+            currentTag=tag;
+            await ld();
+            loadTags();
+        }
+        
+        function clearFilter(){
+            currentTag='';
+            ld();
+            loadTags();
+        }
+        
         function sr(){
             const q=document.getElementById('qr').value.toLowerCase();
             if(!q){
                 rn(vt);
                 return;
             }
-            const f=vt.filter(e=>e.n.toLowerCase().includes(q)||e.u.toLowerCase().includes(q)||(e.url&&e.url.toLowerCase().includes(q)));
+            const f=vt.filter(e=>e.n.toLowerCase().includes(q)||e.u.toLowerCase().includes(q)||(e.url&&e.url.toLowerCase().includes(q))||(e.tags&&e.tags.some(t=>t.toLowerCase().includes(q))));
             rn(f);
         }
+        
         function sa(){
             sh('am');
         }
+        
         function sg(){
             sh('gm');
         }
+        
         function sh(i){
             document.getElementById(i).classList.remove('hid');
         }
+        
         function hd(i){
             document.getElementById(i).classList.add('hid');
         }
+        
         async function ad(){
             const n=document.getElementById('nm').value.trim(),
                 u=document.getElementById('us').value.trim(),
                 ps=document.getElementById('ps').value.trim(),
                 ur=document.getElementById('ur').value.trim(),
+                tg=document.getElementById('tg').value.trim(),
                 nt=document.getElementById('nt').value.trim();
+            
             if(!n||!u||!ps){
                 sm('ms','Name, username, and password required !','er');
                 return;
             }
-            const d=await ap('add',{name:n,user:u,pass:ps,url:ur,note:nt});
+            
+            // Parse tags
+            let tags=[];
+            if(tg){
+                tags=tg.split(',').map(t=>t.trim()).filter(t=>t.length>0);
+            }
+            
+            const d=await ap('add',{name:n,user:u,pass:ps,url:ur,note:nt,tags:tags});
             if(d.ok){
                 ld();
+                loadTags();
                 hd('am');
                 sm('ms','[+] Entry encrypted and added.','ok');
                 document.getElementById('nm').value='';
                 document.getElementById('us').value='';
                 document.getElementById('ps').value='';
                 document.getElementById('ur').value='';
+                document.getElementById('tg').value='';
                 document.getElementById('nt').value='';
             }
         }
+        
         async function dl(i){
             if(!confirm('Permanently delete this entry?'))return;
             const d=await ap('delete',{id:i});
             if(d.ok){
                 ld();
+                loadTags();
                 sm('ms','[+] Entry deleted.','ok');
             }
         }
+        
         async function gn(){
             const l=parseInt(document.getElementById('ln').value)||16;
             const d=await ap('gen',{len:l});
@@ -841,6 +1028,7 @@
                 document.getElementById('go').innerHTML='<div class="ms ok"><strong>[+] Generated:</strong><br><span class="vl" onclick="cp(\''+d.data.replace(/'/g,"\\'")+'\')" style="font-size:1.1em;margin-top:10px;display:block;text-align:center">'+d.data+'</span><div style="text-align:center;margin-top:8px;font-size:12px;color:#64748b">Click to copy</div></div>';
             }
         }
+        
         async function sv(){
             const btn=event.target;
             btn.classList.add('loading');
@@ -854,24 +1042,31 @@
                 sm('ms',+d.msg,' !','er');
             }
         }
+        
         function cp(t){
             navigator.clipboard.writeText(t).then(()=>{
                 sm('ms','[+] Copied to clipboard.','ok');
             }).catch(()=>sm('ms','Copy failed !','er'));
         }
+        
         function sm(i,m,t){
             const el=document.getElementById(i);
             el.innerHTML='<div class="ms '+t+'">'+m+'</div>';
             setTimeout(()=>el.innerHTML='',3000);
         }
+        
         function lo(){
             if(!confirm('Lock vault and logout ?'))return;
             p='';
             vt=[];
+            currentTag='';
             document.getElementById('lg').classList.remove('hid');
             document.getElementById('ap').classList.add('hid');
             document.getElementById('pw').value='';
+            document.getElementById('tags-ct').classList.add('hid');
+            document.getElementById('filter-info').classList.add('hid');
         }
+        
         chk();
     </script>
 </body>
