@@ -755,7 +755,7 @@
             
             meter.classList.remove('hid');
             
-            const d=await ap('strength',{pwd});
+            const d=await ap('strength',{password:pwd});
             if(d.ok){
                 const data=d.data;
                 const fill=meter.querySelector('.strength-fill');

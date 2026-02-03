@@ -28,4 +28,4 @@ test:
 	gcc -o test_crypto c_src/crypto_core.c -DTEST_MODE
 	./test_crypto
 	rm test_crypto
-	@echo "[✓] Tests Passed.
+	@echo "[✓] Tests Passed."
