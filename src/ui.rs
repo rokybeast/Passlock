@@ -17,21 +17,20 @@ use ratatui::{
 use std::io;
 use std::collections::HashMap;
 
-// Gruvbox Retro theme patch
 struct GruvboxColors;
 impl GruvboxColors {
-    fn bg0() -> Color { Color::Rgb(40, 40, 40) }           // #282828
-    fn _bg1() -> Color { Color::Rgb(60, 56, 54) }           // #3c3836
-    fn _bg2() -> Color { Color::Rgb(80, 73, 69) }           // #504945
-    fn fg() -> Color { Color::Rgb(235, 219, 178) }         // #ebdbb2
-    fn red() -> Color { Color::Rgb(251, 73, 52) }          // #fb4934
-    fn green() -> Color { Color::Rgb(184, 187, 38) }       // #b8bb26
-    fn yellow() -> Color { Color::Rgb(250, 189, 47) }      // #fabd2f
-    fn blue() -> Color { Color::Rgb(131, 165, 152) }       // #83a598
-    fn purple() -> Color { Color::Rgb(211, 134, 155) }     // #d3869b
-    fn aqua() -> Color { Color::Rgb(142, 192, 124) }       // #8ec07c
-    fn orange() -> Color { Color::Rgb(254, 128, 25) }      // #fe8019
-    fn gray() -> Color { Color::Rgb(146, 131, 116) }       // #928374
+    fn bg0() -> Color { Color::Rgb(40, 40, 40) }
+    fn _bg1() -> Color { Color::Rgb(60, 56, 54) }
+    fn _bg2() -> Color { Color::Rgb(80, 73, 69) }
+    fn fg() -> Color { Color::Rgb(235, 219, 178) }
+    fn red() -> Color { Color::Rgb(251, 73, 52) }
+    fn green() -> Color { Color::Rgb(184, 187, 38) }
+    fn yellow() -> Color { Color::Rgb(250, 189, 47) }
+    fn blue() -> Color { Color::Rgb(131, 165, 152) }
+    fn purple() -> Color { Color::Rgb(211, 134, 155) }
+    fn aqua() -> Color { Color::Rgb(142, 192, 124) }
+    fn orange() -> Color { Color::Rgb(254, 128, 25) }
+    fn gray() -> Color { Color::Rgb(146, 131, 116) }
 }
 
 #[derive(Clone, PartialEq)]
@@ -71,6 +70,7 @@ struct App {
     vault: Option<Vault>,
     master_pwd: String,
     selected_menu: usize,
+    selected_section: usize,
     input_field: InputField,
     input_buffer: String,
     input_buffer2: String,
@@ -108,6 +108,7 @@ impl App {
             vault: None,
             master_pwd: String::new(),
             selected_menu: 0,
+            selected_section: 0,
             input_field: InputField::None,
             input_buffer: String::new(),
             input_buffer2: String::new(),
@@ -147,15 +148,12 @@ impl App {
             self.set_msg("Password too short (min 4 chars)", MessageType::Error);
             return;
         }
-
         if self.input_buffer != self.input_buffer2 {
             self.set_msg("Passwords don't match!", MessageType::Error);
             return;
         }
-
         let salt = crypto::gen_salt();
         let vault = Vault::new(salt);
-
         match storage::svv(&vault, &self.input_buffer) {
             Ok(_) => {
                 self.master_pwd = self.input_buffer.clone();
@@ -194,7 +192,6 @@ impl App {
             self.set_msg("Name, Username, and Password are required!", MessageType::Error);
             return;
         }
-
         let entry = Entry {
             id: crate::generate_uuid(),
             n: self.n_entry_name.clone(),
@@ -205,10 +202,8 @@ impl App {
             t: crate::get_timestamp(),
             tags: self.n_entry_tags.clone(),
         };
-
         if let Some(ref mut vault) = self.vault {
             vault.e.push(entry);
-            
             if let Err(e) = storage::svv(vault, &self.master_pwd) {
                 self.set_msg(&format!("Failed to save: {}", e), MessageType::Error);
             } else {
@@ -224,7 +219,6 @@ impl App {
         if let Some(ref mut vault) = self.vault {
             if index < vault.e.len() {
                 let removed = vault.e.remove(index);
-                
                 if let Err(e) = storage::svv(vault, &self.master_pwd) {
                     self.set_msg(&format!("Failed to save: {}", e), MessageType::Error);
                 } else {
@@ -293,13 +287,11 @@ impl App {
     fn load_all_tags(&mut self) {
         if let Some(ref vault) = self.vault {
             let mut tag_map: HashMap<String, usize> = HashMap::new();
-            
             for entry in &vault.e {
                 for tag in &entry.tags {
                     *tag_map.entry(tag.clone()).or_insert(0) += 1;
                 }
             }
-            
             self.all_tags = tag_map.into_iter().collect();
             self.all_tags.sort_by(|a, b| b.1.cmp(&a.1));
         }
@@ -307,7 +299,6 @@ impl App {
 
     fn filter_by_tag(&mut self, tag: Option<String>) {
         self.active_tag_filter = tag.clone();
-        
         if let Some(ref vault) = self.vault {
             if let Some(filter_tag) = tag {
                 self.entry_disp = vault
@@ -329,34 +320,21 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-
     let mut app = App::new();
     app.check_vault();
-
     let res = run_app(&mut terminal, &mut app);
-
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
-
     if let Err(err) = res {
         println!("Error: {:?}", err);
     }
-
     Ok(())
 }
 
-fn run_app<B: ratatui::backend::Backend>(
-    terminal: &mut Terminal<B>,
-    app: &mut App,
-) -> io::Result<()> {
+fn run_app<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui(f, app))?;
-
         if let Event::Key(key) = event::read()? {
             if key.kind == KeyEventKind::Press {
                 match app.screen {
@@ -382,7 +360,6 @@ fn run_app<B: ratatui::backend::Backend>(
 
 fn ui(f: &mut Frame, app: &App) {
     let size = f.size();
-
     match app.screen {
         Screen::VaultCheck => draw_loading(f, size),
         Screen::CreateVault => draw_create_vault(f, size, app),
@@ -406,7 +383,6 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
             Constraint::Percentage((100 - percent_y) / 2),
         ])
         .split(r);
-
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -417,7 +393,6 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1]
 }
 
-// Loading screen
 fn draw_loading(f: &mut Frame, size: Rect) {
     let area = centered_rect(50, 30, size);
     let block = Block::default()
@@ -426,50 +401,36 @@ fn draw_loading(f: &mut Frame, size: Rect) {
         .title(" PASSLOCK ")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     let text = Paragraph::new("Initializing vault...")
         .block(block)
         .alignment(Alignment::Center)
         .style(Style::default().fg(GruvboxColors::fg()));
-
     f.render_widget(Clear, area);
     f.render_widget(text, area);
 }
 
-// Vault creation screen
 fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
     let area = centered_rect(65, 70, size);
-    
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),  // title
-            Constraint::Length(1),  // spacer
-            Constraint::Length(3),  // pwd
-            Constraint::Length(3),  // strength bar
-            Constraint::Length(3),  // feedback
-            Constraint::Length(1),  // spacer
-            Constraint::Length(3),  // confirm
-            Constraint::Min(2),     // msg
-            Constraint::Length(3),  // help
+            Constraint::Length(3), Constraint::Length(1), Constraint::Length(3),
+            Constraint::Length(3), Constraint::Length(3), Constraint::Length(1),
+            Constraint::Length(3), Constraint::Min(2), Constraint::Length(3),
         ])
         .split(area);
-
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::orange()))
         .title("═══ CREATE VAULT ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     f.render_widget(block, area);
-
     let title = Paragraph::new("Create your master password")
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-
     let pwd_text = format!("Password: {}", "•".repeat(app.input_buffer.len()));
     let pwd_style = if app.input_field == InputField::Password {
         Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD)
@@ -478,10 +439,8 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
     };
     let password_input = Paragraph::new(pwd_text).style(pwd_style);
     f.render_widget(password_input, chunks[2]);
-
     if !app.input_buffer.is_empty() && app.input_field == InputField::Password {
         let strength = crypto::calc_pwd_strength(&app.input_buffer);
-        
         let strength_color = match strength.strength.as_str() {
             "Weak" => GruvboxColors::red(),
             "Fair" => GruvboxColors::orange(),
@@ -489,7 +448,6 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
             "Strong" => GruvboxColors::green(),
             _ => GruvboxColors::gray(),
         };
-        
         let bar_width = (35 * strength.percentage) / 100;
         let empty_width = 35 - bar_width;
         let bar = format!("[{}{}] {}% - {}", 
@@ -498,12 +456,10 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
             strength.percentage,
             strength.strength
         );
-        
         let strength_display = Paragraph::new(bar)
             .style(Style::default().fg(strength_color))
             .alignment(Alignment::Center);
         f.render_widget(strength_display, chunks[3]);
-        
         if !strength.feedback.is_empty() {
             let feedback_text = format!("↳ {}", strength.feedback.join(", "));
             let feedback = Paragraph::new(feedback_text)
@@ -513,7 +469,6 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
             f.render_widget(feedback, chunks[4]);
         }
     }
-
     let confirm_text = format!("Confirm: {}", "•".repeat(app.input_buffer2.len()));
     let confirm_style = if app.input_field == InputField::PasswordConfirm {
         Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD)
@@ -522,7 +477,6 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
     };
     let confirm_input = Paragraph::new(confirm_text).style(confirm_style);
     f.render_widget(confirm_input, chunks[6]);
-
     if !app.msg.is_empty() {
         let msg_style = match app.msg_type {
             MessageType::Success => Style::default().fg(GruvboxColors::green()),
@@ -535,48 +489,37 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
             .alignment(Alignment::Center);
         f.render_widget(msg, chunks[7]);
     }
-
     let help = Paragraph::new("Tab: Switch | Enter: Create | Esc: Quit")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[8]);
 }
 
-// Unlock vault screen
 fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
     let area = centered_rect(60, 40, size);
-    
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),  // title
-            Constraint::Length(1),  // spacer
-            Constraint::Length(3),  // input
-            Constraint::Min(2),     // msg
-            Constraint::Length(3),  // help
+            Constraint::Length(3), Constraint::Length(1), Constraint::Length(3),
+            Constraint::Min(2), Constraint::Length(3),
         ])
         .split(area);
-
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::aqua()))
         .title("═══ UNLOCK VAULT ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     f.render_widget(block, area);
-
     let title = Paragraph::new("Enter your master password")
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-
     let pwd_text = format!("Password: {}", "•".repeat(app.input_buffer.len()));
     let password_input = Paragraph::new(pwd_text)
         .style(Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD));
     f.render_widget(password_input, chunks[2]);
-
     if !app.msg.is_empty() {
         let msg_style = match app.msg_type {
             MessageType::Success => Style::default().fg(GruvboxColors::green()),
@@ -589,22 +532,20 @@ fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
             .alignment(Alignment::Center);
         f.render_widget(msg, chunks[3]);
     }
-
     let help = Paragraph::new("Enter: Unlock | Esc: Quit")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[4]);
 }
 
-// Main menu screen
 fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
-            Constraint::Length(5),   // header
-            Constraint::Min(10),     // menu
-            Constraint::Length(3),   // help
+            Constraint::Length(5),
+            Constraint::Min(10),
+            Constraint::Length(3),
         ])
         .split(size);
 
@@ -612,7 +553,6 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::yellow()))
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     let vault_info = if let Some(ref vault) = app.vault {
         let tag_count = app.all_tags.len();
         vec![
@@ -636,59 +576,108 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
             Line::from("No vault loaded"),
         ]
     };
-    
     let header = Paragraph::new(vault_info)
         .block(header_block)
         .alignment(Alignment::Center);
     f.render_widget(header, main_layout[0]);
 
-    let menu_block = Block::default()
+    let content_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .margin(0)
+        .constraints([
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ])
+        .split(main_layout[1]);
+
+    let left_block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(GruvboxColors::aqua()))
-        .title("═══ MAIN MENU ═══")
+        .border_style(Style::default().fg(GruvboxColors::green()))
+        .title("═══ PASSWORDS ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
 
-    let menu_items = vec![
-        ("1", "View All Passwords"),
-        ("2", "Add New Password"),
-        ("3", "Search Passwords"),
-        ("4", "Filter by Tag"),
-        ("5", "Generate Password"),
-        ("6", "Delete Password"),
-        ("7", "Exit"),
+    let left_items = vec![
+        ("1", "View All", "Browse vault"),
+        ("2", "Add New", "Create entry"),
+        ("3", "Search", "Find passwords"),
     ];
-
-    let items: Vec<ListItem> = menu_items
+    let left_list: Vec<ListItem> = left_items
         .iter()
         .enumerate()
-        .map(|(i, (num, item))| {
-            let is_selected = i == app.selected_menu;
-            
-            let prefix = if is_selected { "▶ " } else { "  " };
-            let content = format!("[{}] {}", num, item);
-            
+        .map(|(i, (num, title, desc))| {
+            let is_selected = app.selected_section == 0 && i == app.selected_menu;
             let style = if is_selected {
-                Style::default()
-                    .fg(GruvboxColors::yellow())
-                    .add_modifier(Modifier::BOLD)
+                Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(GruvboxColors::fg())
             };
-            
-            ListItem::new(format!("{}{}", prefix, content)).style(style)
+            let prefix = if is_selected { "▶ " } else { "  " };
+            let lines = vec![
+                Line::from(vec![
+                    Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
+                    Span::styled(format!("[{}] ", num), Style::default().fg(GruvboxColors::orange())),
+                    Span::styled(*title, style),
+                ]),
+                Line::from(vec![
+                    Span::raw("     "),
+                    Span::styled(*desc, Style::default().fg(GruvboxColors::gray())),
+                ]),
+                Line::from(""),
+            ];
+            ListItem::new(lines)
         })
         .collect();
+    let left = List::new(left_list).block(left_block);
+    f.render_widget(left, content_layout[0]);
 
-    let list = List::new(items).block(menu_block);
-    f.render_widget(list, main_layout[1]);
+    let right_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(GruvboxColors::purple()))
+        .title("═══ TOOLS ═══")
+        .title_alignment(Alignment::Center)
+        .style(Style::default().bg(GruvboxColors::bg0()));
+
+    let right_items = vec![
+        ("4", "Filter Tags", "Sort by tags"),
+        ("5", "Generate", "Random password"),
+        ("6", "Delete", "Remove entry"),
+        ("7", "Exit", "Lock & quit"),
+    ];
+    let right_list: Vec<ListItem> = right_items
+        .iter()
+        .enumerate()
+        .map(|(i, (num, title, desc))| {
+            let is_selected = app.selected_section == 1 && i == app.selected_menu - 3;
+            let style = if is_selected {
+                Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(GruvboxColors::fg())
+            };
+            let prefix = if is_selected { "▶ " } else { "  " };
+            let lines = vec![
+                Line::from(vec![
+                    Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
+                    Span::styled(format!("[{}] ", num), Style::default().fg(GruvboxColors::orange())),
+                    Span::styled(*title, style),
+                ]),
+                Line::from(vec![
+                    Span::raw("     "),
+                    Span::styled(*desc, Style::default().fg(GruvboxColors::gray())),
+                ]),
+                Line::from(""),
+            ];
+            ListItem::new(lines)
+        })
+        .collect();
+    let right = List::new(right_list).block(right_block);
+    f.render_widget(right, content_layout[1]);
 
     if !app.msg.is_empty() {
         let msg_area = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Min(0), Constraint::Length(3)])
             .split(main_layout[1])[1];
-            
         let msg_style = match app.msg_type {
             MessageType::Success => Style::default().fg(GruvboxColors::green()),
             MessageType::Error => Style::default().fg(GruvboxColors::red()),
@@ -706,41 +695,31 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::gray()))
         .style(Style::default().bg(GruvboxColors::bg0()));
-        
-    let help = Paragraph::new("↑/↓: Navigate  │  Enter: Select  │  Esc: Exit")
+    let help = Paragraph::new("↑/↓: Navigate  │  ←/→: Switch section  │  Enter: Select  │  Esc: Exit")
         .block(help_block)
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, main_layout[2]);
 }
 
-// View pwd screen
 fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([
-            Constraint::Length(3),  // header
-            Constraint::Min(5),     // list
-            Constraint::Length(3),  // help
-        ])
+        .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
         .split(size);
-
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::green()))
         .title("═══ ALL PASSWORDS ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     f.render_widget(block.clone(), size);
-
     if let Some(ref vault) = app.vault {
         let title = Paragraph::new(format!("Total: {} entries", vault.e.len()))
             .style(Style::default().fg(GruvboxColors::yellow()))
             .alignment(Alignment::Center);
         f.render_widget(title, chunks[0]);
-
         if vault.e.is_empty() {
             let empty = Paragraph::new("[ No passwords saved yet ]")
                 .style(Style::default().fg(GruvboxColors::gray()))
@@ -754,14 +733,8 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                 .map(|(i, entry)| {
                     let mut lines = vec![
                         Line::from(vec![
-                            Span::styled(
-                                format!("[{}] ", i + 1),
-                                Style::default().fg(GruvboxColors::orange()),
-                            ),
-                            Span::styled(
-                                &entry.n,
-                                Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD),
-                            ),
+                            Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::orange())),
+                            Span::styled(&entry.n, Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD)),
                         ]),
                         Line::from(vec![
                             Span::styled("  ├─ User: ", Style::default().fg(GruvboxColors::gray())),
@@ -772,110 +745,75 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                             Span::styled(&entry.p, Style::default().fg(GruvboxColors::green())),
                         ]),
                     ];
-
                     if let Some(ref url) = entry.url {
                         lines.push(Line::from(vec![
                             Span::styled("  ├─ URL:  ", Style::default().fg(GruvboxColors::gray())),
                             Span::styled(url, Style::default().fg(GruvboxColors::aqua())),
                         ]));
                     }
-
                     if let Some(ref notes) = entry.nt {
                         lines.push(Line::from(vec![
                             Span::styled("  ├─ Note: ", Style::default().fg(GruvboxColors::gray())),
                             Span::styled(notes, Style::default().fg(GruvboxColors::purple())),
                         ]));
                     }
-
                     if !entry.tags.is_empty() {
                         lines.push(Line::from(vec![
                             Span::styled("  └─ Tags: ", Style::default().fg(GruvboxColors::gray())),
-                            Span::styled(
-                                entry.tags.join(", "),
-                                Style::default().fg(GruvboxColors::orange())
-                            ),
+                            Span::styled(entry.tags.join(", "), Style::default().fg(GruvboxColors::orange())),
                         ]));
                     } else {
-                        lines.push(Line::from(
-                            Span::styled("  └─", Style::default().fg(GruvboxColors::gray()))
-                        ));
+                        lines.push(Line::from(Span::styled("  └─", Style::default().fg(GruvboxColors::gray()))));
                     }
-
                     lines.push(Line::from(""));
-
                     ListItem::new(lines)
                 })
                 .collect();
-
-            let list = List::new(items)
-                .block(Block::default().borders(Borders::NONE));
-            
+            let list = List::new(items).block(Block::default().borders(Borders::NONE));
             f.render_widget(list, chunks[1]);
         }
     }
-
     let help = Paragraph::new("Esc: Back to menu")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[2]);
 }
 
-// Add pwd screen
 fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     let area = centered_rect(80, 85, size);
-    
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(2),  // title
-            Constraint::Length(1),  // spacer
-            Constraint::Length(2),  // name
-            Constraint::Length(2),  // username
-            Constraint::Length(2),  // pwd
-            Constraint::Length(2),  // strength
-            Constraint::Length(2),  // feedback
-            Constraint::Length(2),  // url
-            Constraint::Length(2),  // tags input
-            Constraint::Length(3),  // tags display
-            Constraint::Length(4),  // notes
-            Constraint::Min(1),     // msg
-            Constraint::Length(2),  // help
+            Constraint::Length(2), Constraint::Length(1), Constraint::Length(2), Constraint::Length(2),
+            Constraint::Length(2), Constraint::Length(2), Constraint::Length(2), Constraint::Length(2),
+            Constraint::Length(2), Constraint::Length(3), Constraint::Length(4), Constraint::Min(1), Constraint::Length(2),
         ])
         .split(area);
-
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::green()))
         .title("═══ ADD NEW PASSWORD ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     f.render_widget(block, area);
-
     let title = Paragraph::new("Fill in the details below")
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-
     let active_style = Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD);
     let inactive_style = Style::default().fg(GruvboxColors::gray());
-
     let name_field = Paragraph::new(format!("Name: {}", app.n_entry_name))
         .style(if app.add_fi == 0 { active_style } else { inactive_style });
     f.render_widget(name_field, chunks[2]);
-
     let user_field = Paragraph::new(format!("Username: {}", app.n_entry_user))
         .style(if app.add_fi == 1 { active_style } else { inactive_style });
     f.render_widget(user_field, chunks[3]);
-
     let pass_field = Paragraph::new(format!("Password: {}", app.n_entry_pass))
         .style(if app.add_fi == 2 { active_style } else { inactive_style });
     f.render_widget(pass_field, chunks[4]);
-
     if !app.n_entry_pass.is_empty() && app.add_fi == 2 {
         let strength = crypto::calc_pwd_strength(&app.n_entry_pass);
-        
         let strength_color = match strength.strength.as_str() {
             "Weak" => GruvboxColors::red(),
             "Fair" => GruvboxColors::orange(),
@@ -883,7 +821,6 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
             "Strong" => GruvboxColors::green(),
             _ => GruvboxColors::gray(),
         };
-        
         let bar_width = (35 * strength.percentage) / 100;
         let empty_width = 35 - bar_width;
         let bar = format!("[{}{}] {}% - {}", 
@@ -892,12 +829,10 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
             strength.percentage,
             strength.strength
         );
-        
         let strength_display = Paragraph::new(bar)
             .style(Style::default().fg(strength_color))
             .alignment(Alignment::Center);
         f.render_widget(strength_display, chunks[5]);
-        
         if !strength.feedback.is_empty() {
             let feedback_text = format!("↳ {}", strength.feedback.join(", "));
             let feedback = Paragraph::new(feedback_text)
@@ -907,11 +842,9 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
             f.render_widget(feedback, chunks[6]);
         }
     }
-
     let url_field = Paragraph::new(format!("URL (optional): {}", app.n_entry_url))
         .style(if app.add_fi == 3 { active_style } else { inactive_style });
     f.render_widget(url_field, chunks[7]);
-
     let tags_text = if app.add_fi == 4 {
         format!("Tags: {} ← Enter to add", app.tag_input)
     } else {
@@ -921,7 +854,6 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         .style(if app.add_fi == 4 { active_style } else { inactive_style })
         .wrap(Wrap { trim: true });
     f.render_widget(tags_input, chunks[8]);
-
     if !app.n_entry_tags.is_empty() {
         let tags_display = app.n_entry_tags
             .iter()
@@ -929,18 +861,15 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
             .map(|(i, tag)| format!("[{}]{} ", i + 1, tag))
             .collect::<Vec<_>>()
             .join(" ");
-        
         let tags_widget = Paragraph::new(format!("Added: {}", tags_display))
             .style(Style::default().fg(GruvboxColors::orange()))
             .wrap(Wrap { trim: true });
         f.render_widget(tags_widget, chunks[9]);
     }
-
     let notes = Paragraph::new(format!("Notes:\n{}", app.n_entry_notes))
         .style(if app.add_fi == 5 { active_style } else { inactive_style })
         .wrap(Wrap { trim: false });
     f.render_widget(notes, chunks[10]);
-
     if !app.msg.is_empty() {
         let msg_style = match app.msg_type {
             MessageType::Success => Style::default().fg(GruvboxColors::green()),
@@ -953,46 +882,34 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
             .alignment(Alignment::Center);
         f.render_widget(msg, chunks[11]);
     }
-
     let help = Paragraph::new("Tab: Next field │ Enter: Add tag/Save │ 1-9: Remove tag │ Esc: Cancel")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[12]);
 }
 
-// Filter by tag screen
 fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([
-            Constraint::Length(3),  // title
-            Constraint::Min(5),     // ls
-            Constraint::Length(3),  // info
-            Constraint::Length(3),  // help
-        ])
+        .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3), Constraint::Length(3)])
         .split(size);
-
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::purple()))
         .title("═══ FILTER BY TAG ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     f.render_widget(block, size);
-
     let title = if let Some(ref tag) = app.active_tag_filter {
         format!("Filtering by: [{}] ({} entries)", tag, app.entry_disp.len())
     } else {
         "Select a tag to filter".to_string()
     };
-    
     let title_widget = Paragraph::new(title)
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title_widget, chunks[0]);
-
     if app.all_tags.is_empty() {
         let empty = Paragraph::new("[ No tags available - Add tags to your passwords first ]")
             .style(Style::default().fg(GruvboxColors::gray()))
@@ -1013,11 +930,9 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
                 }
             ),
         ]))];
-
         for (idx, (tag, count)) in app.all_tags.iter().enumerate() {
             let is_selected = idx + 1 == app.selected_tag_filter;
             let prefix = if is_selected { "▶ " } else { "  " };
-            
             items.push(ListItem::new(Line::from(vec![
                 Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
                 Span::styled(
@@ -1030,57 +945,41 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
                 ),
             ])));
         }
-
-        let list = List::new(items)
-            .block(Block::default().borders(Borders::NONE));
-        
+        let list = List::new(items).block(Block::default().borders(Borders::NONE));
         f.render_widget(list, chunks[1]);
     }
-
     if app.active_tag_filter.is_some() {
         let filter_info = Paragraph::new("Press V to view filtered passwords")
             .style(Style::default().fg(GruvboxColors::aqua()))
             .alignment(Alignment::Center);
         f.render_widget(filter_info, chunks[2]);
     }
-
     let help = Paragraph::new("↑/↓: Navigate │ Enter: Apply │ V: View │ Esc: Back")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[3]);
 }
 
-// Search pwd screen
 fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([
-            Constraint::Length(3),  // title
-            Constraint::Length(3),  // search box
-            Constraint::Min(5),     // results
-            Constraint::Length(3),  // help
-        ])
+        .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
         .split(size);
-
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::blue()))
         .title("═══ SEARCH PASSWORDS ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     f.render_widget(block, size);
-
     let title = Paragraph::new("Search by name, username, URL, or tags")
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-
     let search = Paragraph::new(format!("Search: {}", app.search_query))
         .style(Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD));
     f.render_widget(search, chunks[1]);
-
     if app.entry_disp.is_empty() && !app.search_query.is_empty() {
         let empty = Paragraph::new("[ No matches found ]")
             .style(Style::default().fg(GruvboxColors::gray()))
@@ -1105,116 +1004,79 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
                         Span::styled(&entry.p, Style::default().fg(GruvboxColors::green())),
                     ]),
                 ];
-                
                 if !entry.tags.is_empty() {
                     lines.push(Line::from(vec![
                         Span::styled("  Tags: ", Style::default().fg(GruvboxColors::gray())),
-                        Span::styled(
-                            entry.tags.join(", "),
-                            Style::default().fg(GruvboxColors::orange())
-                        ),
+                        Span::styled(entry.tags.join(", "), Style::default().fg(GruvboxColors::orange())),
                     ]));
                 }
-                
                 lines.push(Line::from(""));
-
                 ListItem::new(lines)
             })
             .collect();
-
-        let list = List::new(items)
-            .block(Block::default().borders(Borders::NONE));
-        
+        let list = List::new(items).block(Block::default().borders(Borders::NONE));
         f.render_widget(list, chunks[2]);
     }
-
     let help = Paragraph::new("Type to search │ Esc: Back")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[3]);
 }
 
-// Generate pwd screen
 fn draw_gen_pwd(f: &mut Frame, size: Rect, app: &App) {
     let area = centered_rect(60, 50, size);
-    
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
-        .constraints([
-            Constraint::Length(3),  // title
-            Constraint::Length(3),  // input
-            Constraint::Length(6),  // gen
-            Constraint::Min(1),     // spacer
-            Constraint::Length(3),  // help
-        ])
+        .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Length(6), Constraint::Min(1), Constraint::Length(3)])
         .split(area);
-
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::aqua()))
         .title("═══ GENERATE PASSWORD ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     f.render_widget(block, area);
-
     let title = Paragraph::new("Enter password length (4-64)")
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-
     let length_input = Paragraph::new(format!("Length: {}", if app.input_buffer.is_empty() { "16" } else { &app.input_buffer }))
         .style(Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD));
     f.render_widget(length_input, chunks[1]);
-
     if !app.gen_pwd.is_empty() {
         let generated = Paragraph::new(vec![
             Line::from(""),
             Line::from(Span::styled("Generated Password:", Style::default().fg(GruvboxColors::gray()))),
             Line::from(""),
-            Line::from(Span::styled(
-                &app.gen_pwd,
-                Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD),
-            )),
+            Line::from(Span::styled(&app.gen_pwd, Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD))),
         ])
         .alignment(Alignment::Center);
         f.render_widget(generated, chunks[2]);
     }
-
     let help = Paragraph::new("Enter: Generate │ Esc: Back")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[4]);
 }
 
-// Delete pwd screen
 fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([
-            Constraint::Length(3),  // title
-            Constraint::Min(5),     // ls
-            Constraint::Length(3),  // input
-            Constraint::Length(3),  // help
-        ])
+        .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3), Constraint::Length(3)])
         .split(size);
-
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::red()))
         .title("═══ DELETE PASSWORD ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-
     f.render_widget(block, size);
-
     let title = Paragraph::new("⚠ Enter the number of the entry to delete")
         .style(Style::default().fg(GruvboxColors::orange()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-
     if let Some(ref vault) = app.vault {
         if vault.e.is_empty() {
             let empty = Paragraph::new("[ No passwords to delete ]")
@@ -1228,33 +1090,23 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
                 .enumerate()
                 .map(|(i, entry)| {
                     ListItem::new(Line::from(vec![
-                        Span::styled(
-                            format!("[{}] ", i + 1),
-                            Style::default().fg(GruvboxColors::red()),
-                        ),
+                        Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::red())),
                         Span::styled(&entry.n, Style::default().fg(GruvboxColors::fg())),
                     ]))
                 })
                 .collect();
-
-            let list = List::new(items)
-                .block(Block::default().borders(Borders::NONE));
-            
+            let list = List::new(items).block(Block::default().borders(Borders::NONE));
             f.render_widget(list, chunks[1]);
         }
     }
-
     let input = Paragraph::new(format!("Entry number: {}", app.input_buffer))
         .style(Style::default().fg(GruvboxColors::red()).add_modifier(Modifier::BOLD));
     f.render_widget(input, chunks[2]);
-
     let help = Paragraph::new("Type number │ Enter: Delete │ Esc: Cancel")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[3]);
 }
-
-// Input handlers
 
 fn handle_cvi(app: &mut App, key: KeyCode) {
     match key {
@@ -1319,6 +1171,18 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
                 app.selected_menu += 1;
             }
         }
+        KeyCode::Left => {
+            app.selected_section = 0;
+            if app.selected_menu > 2 {
+                app.selected_menu = 0;
+            }
+        }
+        KeyCode::Right => {
+            app.selected_section = 1;
+            if app.selected_menu < 3 {
+                app.selected_menu = 3;
+            }
+        }
         KeyCode::Char('1') => { app.screen = Screen::ViewPasswords; app.msg.clear(); }
         KeyCode::Char('2') => { app.screen = Screen::AddPassword; app.ca_form(); app.msg.clear(); }
         KeyCode::Char('3') => { app.screen = Screen::SearchPassword; app.search_query.clear(); app.entry_disp.clear(); app.msg.clear(); }
@@ -1330,36 +1194,16 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
             app.msg.clear();
             match app.selected_menu {
                 0 => app.screen = Screen::ViewPasswords,
-                1 => {
-                    app.screen = Screen::AddPassword;
-                    app.ca_form();
-                }
-                2 => {
-                    app.screen = Screen::SearchPassword;
-                    app.search_query.clear();
-                    app.entry_disp.clear();
-                }
-                3 => {
-                    app.screen = Screen::FilterByTag;
-                    app.selected_tag_filter = 0;
-                    app.filter_by_tag(None);
-                }
-                4 => {
-                    app.screen = Screen::GeneratePassword;
-                    app.input_buffer = String::from("16");
-                    app.gen_pwd.clear();
-                }
-                5 => {
-                    app.screen = Screen::DeletePassword;
-                    app.input_buffer.clear();
-                }
+                1 => { app.screen = Screen::AddPassword; app.ca_form(); }
+                2 => { app.screen = Screen::SearchPassword; app.search_query.clear(); app.entry_disp.clear(); }
+                3 => { app.screen = Screen::FilterByTag; app.selected_tag_filter = 0; app.filter_by_tag(None); }
+                4 => { app.screen = Screen::GeneratePassword; app.input_buffer = String::from("16"); app.gen_pwd.clear(); }
+                5 => { app.screen = Screen::DeletePassword; app.input_buffer.clear(); }
                 6 => return true,
                 _ => {}
             }
         }
-        KeyCode::Esc => {
-            return true;
-        }
+        KeyCode::Esc => return true,
         _ => {}
     }
     false
@@ -1367,9 +1211,7 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
 
 fn handle_vpi(app: &mut App, key: KeyCode) {
     match key {
-        KeyCode::Esc => {
-            app.screen = Screen::MainMenu;
-        }
+        KeyCode::Esc => { app.screen = Screen::MainMenu; }
         _ => {}
     }
 }
@@ -1400,7 +1242,7 @@ fn handle_api(app: &mut App, key: KeyCode) {
                 1 => { app.n_entry_user.pop(); }
                 2 => { app.n_entry_pass.pop(); }
                 3 => { app.n_entry_url.pop(); }
-                4 => { 
+                4 => {
                     if app.tag_input.is_empty() && !app.n_entry_tags.is_empty() {
                         app.n_entry_tags.pop();
                     } else {
