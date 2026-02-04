@@ -120,7 +120,7 @@ jobs:
         elif ./target/release/passlock -h 2>&1 | head -2; then
           echo "Rust CLI works correctly"
         else
-          timeout 3 ./target/release/passlock 2>&1 | head -2 && echo "✅ TUI starts (no --help flag)" || echo "⚠️  TUI may have issues"
+          timeout 3 ./target/release/passlock 2>&1 | head -2 && echo "TUI starts (no --help flag)" || echo "TUI may have issues"
         fi
         
         echo "Rust CI completed successfully!"
