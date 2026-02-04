@@ -186,6 +186,10 @@ impl App {
                 self.input_field = InputField::None;
                 self.set_msg("Vault unlocked!", MessageType::Success);
                 self.load_at();
+                // Initialize entry_disp with all entries
+                if let Some(ref vault) = self.vault {
+                    self.entry_disp = vault.e.clone();
+                }
             }
             Err(_) => {
                 self.set_msg("Wrong password!", MessageType::Error);
@@ -220,6 +224,10 @@ impl App {
                 self.ca_form();
                 self.screen = Screen::MainMenu;
                 self.load_at();
+                // Update entry_disp to include the new entry
+                if let Some(ref vault) = self.vault {
+                    self.entry_disp = vault.e.clone();
+                }
             }
         }
     }
@@ -256,6 +264,10 @@ impl App {
                     self.ca_form();
                     self.screen = Screen::MainMenu;
                     self.load_at();
+                    // Update entry_disp to reflect changes
+                    if let Some(ref vault) = self.vault {
+                        self.entry_disp = vault.e.clone();
+                    }
                 }
             }
         }
@@ -287,6 +299,10 @@ impl App {
                     self.set_msg(&format!("Deleted '{}'", removed.n), MessageType::Success);
                     self.screen = Screen::MainMenu;
                     self.load_at();
+                    // Update entry_disp to remove the deleted entry
+                    if let Some(ref vault) = self.vault {
+                        self.entry_disp = vault.e.clone();
+                    }
                 }
             } else {
                 self.set_msg("Invalid entry number!", MessageType::Error);
@@ -297,17 +313,21 @@ impl App {
     fn search_entries(&mut self) {
         if let Some(ref vault) = self.vault {
             let query = self.search_query.to_lowercase();
-            self.entry_disp = vault
-                .e
-                .iter()
-                .filter(|e| {
-                    e.n.to_lowercase().contains(&query)
-                        || e.u.to_lowercase().contains(&query)
-                        || e.url.as_ref().map_or(false, |u| u.to_lowercase().contains(&query))
-                        || e.tags.iter().any(|t| t.to_lowercase().contains(&query))
-                })
-                .cloned()
-                .collect();
+            if query.is_empty() {
+                self.entry_disp = vault.e.clone();
+            } else {
+                self.entry_disp = vault
+                    .e
+                    .iter()
+                    .filter(|e| {
+                        e.n.to_lowercase().contains(&query)
+                            || e.u.to_lowercase().contains(&query)
+                            || e.url.as_ref().map_or(false, |u| u.to_lowercase().contains(&query))
+                            || e.tags.iter().any(|t| t.to_lowercase().contains(&query))
+                    })
+                    .cloned()
+                    .collect();
+            }
         }
     }
 
@@ -371,6 +391,7 @@ impl App {
                     .cloned()
                     .collect();
             } else {
+                // Clear filter - show all entries
                 self.entry_disp = vault.e.clone();
             }
         }
@@ -644,6 +665,13 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().bg(GruvboxColors::bg0()));
     let vault_info = if let Some(ref vault) = app.vault {
         let tag_count = app.all_tags.len();
+        let disp_count = app.entry_disp.len();
+        let total_count = vault.e.len();
+        let filter_indicator = if disp_count != total_count {
+            format!(" (Filtered: {})", disp_count)
+        } else {
+            String::new()
+        };
         vec![
             Line::from(vec![
                 Span::styled("█▓▒░ PASSLOCK ░▒▓█", Style::default().fg(GruvboxColors::orange()).add_modifier(Modifier::BOLD)),
@@ -653,7 +681,7 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
                 Span::styled("Vault: ", Style::default().fg(GruvboxColors::gray())),
                 Span::styled("UNLOCKED ", Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD)),
                 Span::styled("│ ", Style::default().fg(GruvboxColors::gray())),
-                Span::styled(format!("{} passwords ", vault.e.len()), Style::default().fg(GruvboxColors::blue())),
+                Span::styled(format!("{} passwords{} ", total_count, filter_indicator), Style::default().fg(GruvboxColors::blue())),
                 Span::styled("│ ", Style::default().fg(GruvboxColors::gray())),
                 Span::styled(format!("{} tags", tag_count), Style::default().fg(GruvboxColors::purple())),
             ]),
@@ -790,88 +818,102 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::green()))
-        .title("═══ ALL PASSWORDS ═══")
+        .title("═══ PASSWORDS ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
     f.render_widget(block.clone(), size);
-    if let Some(ref vault) = app.vault {
-        let title = Paragraph::new(format!("Total: {} entries | Press E to edit, H for history", vault.e.len()))
-            .style(Style::default().fg(GruvboxColors::yellow()))
-            .alignment(Alignment::Center);
-        f.render_widget(title, chunks[0]);
-        if vault.e.is_empty() {
-            let empty = Paragraph::new("[ No passwords saved yet ]")
-                .style(Style::default().fg(GruvboxColors::gray()))
-                .alignment(Alignment::Center);
-            f.render_widget(empty, chunks[1]);
+    
+    // Show filter status if active
+    let filter_status = if let Some(ref tag) = app.active_tf {
+        format!(" (Filtered by: {})", tag)
+    } else if !app.search_query.is_empty() {
+        format!(" (Search: {})", app.search_query)
+    } else {
+        String::new()
+    };
+    
+    let title = Paragraph::new(format!("Total: {} entries{} | Press E to edit, H for history", app.entry_disp.len(), filter_status))
+        .style(Style::default().fg(GruvboxColors::yellow()))
+        .alignment(Alignment::Center);
+    f.render_widget(title, chunks[0]);
+    
+    if app.entry_disp.is_empty() {
+        let empty = if app.active_tf.is_some() || !app.search_query.is_empty() {
+            "[ No matching entries found ]"
         } else {
-            let items: Vec<ListItem> = vault
-                .e
-                .iter()
-                .enumerate()
-                .map(|(i, entry)| {
-                    let is_selected = i == app.selected_entry;
-                    let prefix = if is_selected { "▶ " } else { "  " };
-                    let time_ago = app.get_ta(entry.last_modified);
-                    let mut lines = vec![
-                        Line::from(vec![
-                            Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
-                            Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::orange())),
-                            Span::styled(&entry.n, 
-                                if is_selected {
-                                    Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD)
-                                } else {
-                                    Style::default().fg(GruvboxColors::yellow())
-                                }
-                            ),
-                            Span::styled(format!("  (Modified: {})", time_ago), Style::default().fg(GruvboxColors::gray())),
-                        ]),
-                        Line::from(vec![
-                            Span::raw("     "),
-                            Span::styled("├─ User: ", Style::default().fg(GruvboxColors::gray())),
-                            Span::styled(&entry.u, Style::default().fg(GruvboxColors::blue())),
-                        ]),
-                        Line::from(vec![
-                            Span::raw("     "),
-                            Span::styled("├─ Pass: ", Style::default().fg(GruvboxColors::gray())),
-                            Span::styled(&entry.p, Style::default().fg(GruvboxColors::green())),
-                        ]),
-                    ];
-                    if let Some(ref url) = entry.url {
-                        lines.push(Line::from(vec![
-                            Span::raw("     "),
-                            Span::styled("├─ URL:  ", Style::default().fg(GruvboxColors::gray())),
-                            Span::styled(url, Style::default().fg(GruvboxColors::aqua())),
-                        ]));
-                    }
-                    if !entry.history.is_empty() {
-                        lines.push(Line::from(vec![
-                            Span::raw("     "),
-                            Span::styled(format!("├─ History: {} changes", entry.history.len()), 
-                                Style::default().fg(GruvboxColors::purple())),
-                        ]));
-                    }
-                    if !entry.tags.is_empty() {
-                        lines.push(Line::from(vec![
-                            Span::raw("     "),
-                            Span::styled("└─ Tags: ", Style::default().fg(GruvboxColors::gray())),
-                            Span::styled(entry.tags.join(", "), Style::default().fg(GruvboxColors::orange())),
-                        ]));
-                    } else {
-                        lines.push(Line::from(vec![
-                            Span::raw("     "),
-                            Span::styled("└─", Style::default().fg(GruvboxColors::gray()))
-                        ]));
-                    }
-                    lines.push(Line::from(""));
-                    ListItem::new(lines)
-                })
-                .collect();
-            let list = List::new(items).block(Block::default().borders(Borders::NONE));
-            f.render_widget(list, chunks[1]);
-        }
+            "[ No passwords saved yet ]"
+        };
+        let empty_paragraph = Paragraph::new(empty)
+            .style(Style::default().fg(GruvboxColors::gray()))
+            .alignment(Alignment::Center);
+        f.render_widget(empty_paragraph, chunks[1]);
+    } else {
+        let items: Vec<ListItem> = app
+            .entry_disp
+            .iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                let is_selected = i == app.selected_entry;
+                let prefix = if is_selected { "▶ " } else { "  " };
+                let time_ago = app.get_ta(entry.last_modified);
+                let mut lines = vec![
+                    Line::from(vec![
+                        Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
+                        Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::orange())),
+                        Span::styled(&entry.n, 
+                            if is_selected {
+                                Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD)
+                            } else {
+                                Style::default().fg(GruvboxColors::yellow())
+                            }
+                        ),
+                        Span::styled(format!("  (Modified: {})", time_ago), Style::default().fg(GruvboxColors::gray())),
+                    ]),
+                    Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled("├─ User: ", Style::default().fg(GruvboxColors::gray())),
+                        Span::styled(&entry.u, Style::default().fg(GruvboxColors::blue())),
+                    ]),
+                    Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled("├─ Pass: ", Style::default().fg(GruvboxColors::gray())),
+                        Span::styled(&entry.p, Style::default().fg(GruvboxColors::green())),
+                    ]),
+                ];
+                if let Some(ref url) = entry.url {
+                    lines.push(Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled("├─ URL:  ", Style::default().fg(GruvboxColors::gray())),
+                        Span::styled(url, Style::default().fg(GruvboxColors::aqua())),
+                    ]));
+                }
+                if !entry.history.is_empty() {
+                    lines.push(Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled(format!("├─ History: {} changes", entry.history.len()), 
+                            Style::default().fg(GruvboxColors::purple())),
+                    ]));
+                }
+                if !entry.tags.is_empty() {
+                    lines.push(Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled("└─ Tags: ", Style::default().fg(GruvboxColors::gray())),
+                        Span::styled(entry.tags.join(", "), Style::default().fg(GruvboxColors::orange())),
+                    ]));
+                } else {
+                    lines.push(Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled("└─", Style::default().fg(GruvboxColors::gray()))
+                    ]));
+                }
+                lines.push(Line::from(""));
+                ListItem::new(lines)
+            })
+            .collect();
+        let list = List::new(items).block(Block::default().borders(Borders::NONE));
+        f.render_widget(list, chunks[1]);
     }
-    let help = Paragraph::new("↑/↓: Navigate │ E: Edit │ H: History │ Esc: Back")
+    let help = Paragraph::new("↑/↓: Navigate │ E: Edit │ H: History │ F: Clear filter │ Esc: Back")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[2]);
@@ -1109,41 +1151,45 @@ fn draw_history(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().bg(GruvboxColors::bg0()));
     f.render_widget(block, size);
     if let Some(ref vault) = app.vault {
-        if app.selected_entry < vault.e.len() {
-            let entry = &vault.e[app.selected_entry];
-            let title = Paragraph::new(format!("History for: {} (Last 5 changes)", entry.n))
-                .style(Style::default().fg(GruvboxColors::yellow()))
-                .alignment(Alignment::Center);
-            f.render_widget(title, chunks[0]);
-            if entry.history.is_empty() {
-                let empty = Paragraph::new("[ No password changes recorded ]")
-                    .style(Style::default().fg(GruvboxColors::gray()))
+        if app.selected_entry < app.entry_disp.len() {
+            // Get the entry from entry_disp
+            let entry = &app.entry_disp[app.selected_entry];
+            // Find the same entry in vault by ID
+            if let Some(vault_entry) = vault.e.iter().find(|e| e.id == entry.id) {
+                let title = Paragraph::new(format!("History for: {} (Last 5 changes)", vault_entry.n))
+                    .style(Style::default().fg(GruvboxColors::yellow()))
                     .alignment(Alignment::Center);
-                f.render_widget(empty, chunks[1]);
-            } else {
-                let items: Vec<ListItem> = entry
-                    .history
-                    .iter()
-                    .rev()
-                    .enumerate()
-                    .map(|(i, hist)| {
-                        let time_ago = app.get_ta(hist.changed_at);
-                        let lines = vec![
-                            Line::from(vec![
-                                Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::purple())),
-                                Span::styled(&hist.password, Style::default().fg(GruvboxColors::green())),
-                            ]),
-                            Line::from(vec![
-                                Span::raw("    "),
-                                Span::styled(format!("Changed: {}", time_ago), Style::default().fg(GruvboxColors::gray())),
-                            ]),
-                            Line::from(""),
-                        ];
-                        ListItem::new(lines)
-                    })
-                    .collect();
-                let list = List::new(items).block(Block::default().borders(Borders::NONE));
-                f.render_widget(list, chunks[1]);
+                f.render_widget(title, chunks[0]);
+                if vault_entry.history.is_empty() {
+                    let empty = Paragraph::new("[ No password changes recorded ]")
+                        .style(Style::default().fg(GruvboxColors::gray()))
+                        .alignment(Alignment::Center);
+                    f.render_widget(empty, chunks[1]);
+                } else {
+                    let items: Vec<ListItem> = vault_entry
+                        .history
+                        .iter()
+                        .rev()
+                        .enumerate()
+                        .map(|(i, hist)| {
+                            let time_ago = app.get_ta(hist.changed_at);
+                            let lines = vec![
+                                Line::from(vec![
+                                    Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::purple())),
+                                    Span::styled(&hist.password, Style::default().fg(GruvboxColors::green())),
+                                ]),
+                                Line::from(vec![
+                                    Span::raw("    "),
+                                    Span::styled(format!("Changed: {}", time_ago), Style::default().fg(GruvboxColors::gray())),
+                                ]),
+                                Line::from(""),
+                            ];
+                            ListItem::new(lines)
+                        })
+                        .collect();
+                    let list = List::new(items).block(Block::default().borders(Borders::NONE));
+                    f.render_widget(list, chunks[1]);
+                }
             }
         }
     }
@@ -1282,7 +1328,7 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
         let list = List::new(items).block(Block::default().borders(Borders::NONE));
         f.render_widget(list, chunks[2]);
     }
-    let help = Paragraph::new("Type to search │ Esc: Back")
+    let help = Paragraph::new("Type to search │ Enter: View results │ Esc: Back")
         .style(Style::default().fg(GruvboxColors::gray()))
         .alignment(Alignment::Center);
     f.render_widget(help, chunks[3]);
@@ -1342,27 +1388,32 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().fg(GruvboxColors::orange()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-    if let Some(ref vault) = app.vault {
-        if vault.e.is_empty() {
-            let empty = Paragraph::new("[ No passwords to delete ]")
-                .style(Style::default().fg(GruvboxColors::gray()))
-                .alignment(Alignment::Center);
-            f.render_widget(empty, chunks[1]);
-        } else {
-            let items: Vec<ListItem> = vault
-                .e
-                .iter()
-                .enumerate()
-                .map(|(i, entry)| {
-                    ListItem::new(Line::from(vec![
-                        Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::red())),
-                        Span::styled(&entry.n, Style::default().fg(GruvboxColors::fg())),
-                    ]))
-                })
-                .collect();
-            let list = List::new(items).block(Block::default().borders(Borders::NONE));
-            f.render_widget(list, chunks[1]);
-        }
+    // Use entry_disp for deletion when filtered
+    let empty_vec = Vec::new();
+    let entries_to_display = if app.entry_disp.is_empty() {
+        app.vault.as_ref().map(|v| &v.e).unwrap_or(&empty_vec)
+    } else {
+        &app.entry_disp
+    };
+    
+    if entries_to_display.is_empty() {
+        let empty = Paragraph::new("[ No passwords to delete ]")
+            .style(Style::default().fg(GruvboxColors::gray()))
+            .alignment(Alignment::Center);
+        f.render_widget(empty, chunks[1]);
+    } else {
+        let items: Vec<ListItem> = entries_to_display
+            .iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                ListItem::new(Line::from(vec![
+                    Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::red())),
+                    Span::styled(&entry.n, Style::default().fg(GruvboxColors::fg())),
+                ]))
+            })
+            .collect();
+        let list = List::new(items).block(Block::default().borders(Borders::NONE));
+        f.render_widget(list, chunks[1]);
     }
     let input = Paragraph::new(format!("Entry number: {}", app.input_buffer))
         .style(Style::default().fg(GruvboxColors::red()).add_modifier(Modifier::BOLD));
@@ -1458,22 +1509,71 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
                 app.selected_menu = 3;
             }
         }
-        KeyCode::Char('1') => { app.screen = Screen::ViewPasswords; app.msg.clear(); }
+        KeyCode::Char('1') => { 
+            app.screen = Screen::ViewPasswords; 
+            app.msg.clear(); 
+            // Reset any active filters
+            app.active_tf = None;
+            app.search_query.clear();
+            if let Some(ref vault) = app.vault {
+                app.entry_disp = vault.e.clone();
+            }
+        }
         KeyCode::Char('2') => { app.screen = Screen::AddPassword; app.ca_form(); app.msg.clear(); }
-        KeyCode::Char('3') => { app.screen = Screen::SearchPassword; app.search_query.clear(); app.entry_disp.clear(); app.msg.clear(); }
-        KeyCode::Char('4') => { app.screen = Screen::FilterByTag; app.select_tf = 0; app.filter_bt(None); app.msg.clear(); }
+        KeyCode::Char('3') => { 
+            app.screen = Screen::SearchPassword; 
+            app.search_query.clear(); 
+            app.entry_disp.clear(); 
+            app.msg.clear(); 
+        }
+        KeyCode::Char('4') => { 
+            app.screen = Screen::FilterByTag; 
+            app.select_tf = 0; 
+            app.filter_bt(None); 
+            app.msg.clear(); 
+        }
         KeyCode::Char('5') => { app.screen = Screen::GeneratePassword; app.input_buffer = String::from("16"); app.gen_pwd.clear(); app.msg.clear(); }
-        KeyCode::Char('6') => { app.screen = Screen::DeletePassword; app.input_buffer.clear(); app.msg.clear(); }
+        KeyCode::Char('6') => { 
+            app.screen = Screen::DeletePassword; 
+            app.input_buffer.clear(); 
+            app.msg.clear(); 
+            // Use filtered entries for deletion if filter is active
+            if app.entry_disp.is_empty() {
+                if let Some(ref vault) = app.vault {
+                    app.entry_disp = vault.e.clone();
+                }
+            }
+        }
         KeyCode::Char('7') => return true,
         KeyCode::Enter => {
             app.msg.clear();
             match app.selected_menu {
-                0 => app.screen = Screen::ViewPasswords,
+                0 => { 
+                    app.screen = Screen::ViewPasswords; 
+                    app.active_tf = None;
+                    app.search_query.clear();
+                    if let Some(ref vault) = app.vault {
+                        app.entry_disp = vault.e.clone();
+                    }
+                }
                 1 => { app.screen = Screen::AddPassword; app.ca_form(); }
-                2 => { app.screen = Screen::SearchPassword; app.search_query.clear(); app.entry_disp.clear(); }
+                2 => { 
+                    app.screen = Screen::SearchPassword; 
+                    app.search_query.clear(); 
+                    app.entry_disp.clear(); 
+                }
                 3 => { app.screen = Screen::FilterByTag; app.select_tf = 0; app.filter_bt(None); }
                 4 => { app.screen = Screen::GeneratePassword; app.input_buffer = String::from("16"); app.gen_pwd.clear(); }
-                5 => { app.screen = Screen::DeletePassword; app.input_buffer.clear(); }
+                5 => { 
+                    app.screen = Screen::DeletePassword; 
+                    app.input_buffer.clear(); 
+                    // Use filtered entries for deletion if filter is active
+                    if app.entry_disp.is_empty() {
+                        if let Some(ref vault) = app.vault {
+                            app.entry_disp = vault.e.clone();
+                        }
+                    }
+                }
                 6 => return true,
                 _ => {}
             }
@@ -1492,26 +1592,30 @@ fn handle_vpi(app: &mut App, key: KeyCode) {
             }
         }
         KeyCode::Down => {
-            if let Some(ref vault) = app.vault {
-                if app.selected_entry < vault.e.len().saturating_sub(1) {
-                    app.selected_entry += 1;
-                }
+            if app.selected_entry < app.entry_disp.len().saturating_sub(1) {
+                app.selected_entry += 1;
             }
         }
         KeyCode::Char('e') | KeyCode::Char('E') => {
-            if let Some(ref vault) = app.vault {
-                if app.selected_entry < vault.e.len() {
-                    let entry_id = vault.e[app.selected_entry].id.clone();
-                    app.load_efe(entry_id);
-                }
+            if app.selected_entry < app.entry_disp.len() {
+                let entry_id = app.entry_disp[app.selected_entry].id.clone();
+                app.load_efe(entry_id);
             }
         }
         KeyCode::Char('h') | KeyCode::Char('H') => {
-            if let Some(ref vault) = app.vault {
-                if app.selected_entry < vault.e.len() {
-                    app.screen = Screen::ViewHistory;
-                }
+            if app.selected_entry < app.entry_disp.len() {
+                app.screen = Screen::ViewHistory;
             }
+        }
+        KeyCode::Char('f') | KeyCode::Char('F') => {
+            // Clear all filters
+            app.active_tf = None;
+            app.search_query.clear();
+            if let Some(ref vault) = app.vault {
+                app.entry_disp = vault.e.clone();
+            }
+            app.selected_entry = 0;
+            app.set_msg("Filters cleared", MessageType::Success);
         }
         KeyCode::Esc => {
             app.screen = Screen::MainMenu;
@@ -1654,6 +1758,9 @@ fn handle_si(app: &mut App, key: KeyCode) {
             app.search_query.pop();
             app.search_entries();
         }
+        KeyCode::Enter => {
+            app.screen = Screen::ViewPasswords;
+        }
         KeyCode::Esc => {
             app.screen = Screen::MainMenu;
         }
@@ -1689,8 +1796,16 @@ fn handle_di(app: &mut App, key: KeyCode) {
         }
         KeyCode::Enter => {
             if let Ok(idx) = app.input_buffer.parse::<usize>() {
-                if idx > 0 {
-                    app.delete_entry(idx - 1);
+                if idx > 0 && idx <= app.entry_disp.len() {
+                    let entry_id = app.entry_disp[idx - 1].id.clone();
+                    // Find the actual index in the vault
+                    if let Some(ref vault) = app.vault {
+                        if let Some(vault_idx) = vault.e.iter().position(|e| e.id == entry_id) {
+                            app.delete_entry(vault_idx);
+                        } else {
+                            app.set_msg("Entry not found in vault!", MessageType::Error);
+                        }
+                    }
                 } else {
                     app.set_msg("Invalid entry number!", MessageType::Error);
                 }
@@ -1720,18 +1835,20 @@ fn handle_tfi(app: &mut App, key: KeyCode) {
         KeyCode::Enter => {
             if app.select_tf == 0 {
                 app.filter_bt(None);
+                app.set_msg("Showing all entries", MessageType::Success);
             } else if app.select_tf <= app.all_tags.len() {
                 let tag = app.all_tags[app.select_tf - 1].0.clone();
-                app.filter_bt(Some(tag));
+                app.filter_bt(Some(tag.clone()));
+                app.set_msg(&format!("Filtered by tag: {}", tag), MessageType::Success);
             }
         }
         KeyCode::Char('v') | KeyCode::Char('V') => {
-            if app.active_tf.is_some() && !app.entry_disp.is_empty() {
+            if !app.entry_disp.is_empty() {
+                app.selected_entry = 0;
                 app.screen = Screen::ViewPasswords;
             }
         }
         KeyCode::Esc => {
-            app.active_tf = None;
             app.screen = Screen::MainMenu;
         }
         _ => {}
