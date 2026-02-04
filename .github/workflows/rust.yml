@@ -1,4 +1,4 @@
-name: Rust CI
+name: Passlock CI
 
 on:
   push:
@@ -6,40 +6,75 @@ on:
   pull_request:
     branches: [ "main" ]
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  build:
-    name: Build & Test
-    runs-on: ubuntu-latest
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
 
+    runs-on: ${{ matrix.os }}
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ matrix.rust }}
+        targets: ${{ matrix.os == 'macos-latest' && 'x86_64-apple-darwin' || '' }}
+        components: clippy, rustfmt
 
-      - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
+    - name: Install C compiler
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get update && sudo apt-get install -y gcc-multilib
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+    - name: Install Go (for API server)
+      uses: actions/setup-go@v5
+      with:
+        go-version: 'stable'
 
-      - name: Cargo build
-        run: cargo build --verbose
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Cargo test
-        run: cargo test --verbose
+    - name: Build project
+      run: make build
 
-      - name: Cargo fmt (check)
-        run: cargo fmt --all -- --check
+    - name: Run Rust tests
+      run: cargo test --verbose
 
-      - name: Cargo clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+    - name: Run C tests
+      run: make test
+
+    - name: Lint with Clippy
+      run: cargo clippy -- -D warnings
+
+    - name: Check formatting
+      run: cargo fmt -- --check
+
+    - name: Security audit
+      run: cargo audit
+
+  test-api-server:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 'stable'
+        
+    - name: Test Go HTTP API
+      working-directory: ./go_src
+      run: go test -v ./...
