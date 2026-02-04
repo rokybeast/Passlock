@@ -19,37 +19,15 @@ jobs:
       with:
         go-version: 'stable'
 
-    - name: Install libsodium (for Go API if needed)
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libsodium-dev
-
     - name: Build Go API server
       run: |
-        echo "Building Go API server..."
         go build -o passlock-api api_server.go
-        echo "Go API server compiled: ./passlock-api"
 
     - name: Verify web assets
       run: |
-        echo "Checking web assets..."
         if [ -d web ] && [ -f web/index.html ]; then
-          echo "Web directory exists with index.html"
-          echo "Web files:"
-          ls -la web/
+          echo "Web assets exist"
         else
-          echo "Web directory or index.html not found"
-          exit 1
-        fi
-
-    - name: Test API server startup
-      run: |
-        echo "Testing API server startup..."
-        # Check if binary exists and runs
-        if [ -f ./passlock-api ]; then
-          timeout 3 ./passlock-api --help 2>&1 | head -5 || echo "API server compiled (may not have --help flag)"
-          echo "Go CI completed successfully!"
-        else
-          echo "Go API binary not found"
+          echo "Web assets not found"
           exit 1
         fi

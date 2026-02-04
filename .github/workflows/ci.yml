@@ -1,4 +1,4 @@
-name: Full CI (Makefile)
+name: Full CI
 
 on:
   push:
@@ -14,39 +14,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install all dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential golang-go libsodium-dev libsodium23 pkg-config
+        sudo apt-get install -y build-essential golang-go libsodium-dev libsodium23
 
     - name: Build everything with Makefile
-      env:
-        PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
       run: make build
 
     - name: Run all tests
-      env:
-        PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
       run: make test
 
     - name: Verify all components
       run: |
-        echo "Full build verification:"
-        
         if [ -f ./target/release/passlock ]; then
-          echo "Rust binary: ./target/release/passlock"
-          file ./target/release/passlock
+          echo "Rust binary exists"
+          exit 0
         else
           echo "Rust binary not found"
           exit 1
         fi
-        
-        echo "C source files in src/c/:"
-        ls -la src/c/
-        
-        echo "Testing TUI startup..."
-        timeout 3 ./target/release/passlock --help 2>&1 | head -3 || \
-        timeout 3 ./target/release/passlock -h 2>&1 | head -3 || \
-        echo "Binary exists (TUI may start without help flag)"
-        
-        echo "Full CI completed successfully!"
