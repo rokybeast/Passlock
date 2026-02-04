@@ -92,9 +92,9 @@ struct App {
     tag_input: String,
     add_fi: usize,
     all_tags: Vec<(String, usize)>,
-    selected_tag_filter: usize,
-    active_tag_filter: Option<String>,
-    edit_entry_id: String,
+    select_tf: usize,
+    active_tf: Option<String>,
+    edit_eid: String,
 }
 
 #[derive(Clone, PartialEq)]
@@ -132,9 +132,9 @@ impl App {
             tag_input: String::new(),
             add_fi: 0,
             all_tags: Vec::new(),
-            selected_tag_filter: 0,
-            active_tag_filter: None,
-            edit_entry_id: String::new(),
+            select_tf: 0,
+            active_tf: None,
+            edit_eid: String::new(),
         }
     }
 
@@ -185,7 +185,7 @@ impl App {
                 self.input_buffer.clear();
                 self.input_field = InputField::None;
                 self.set_msg("Vault unlocked!", MessageType::Success);
-                self.load_all_tags();
+                self.load_at();
             }
             Err(_) => {
                 self.set_msg("Wrong password!", MessageType::Error);
@@ -219,7 +219,7 @@ impl App {
                 self.set_msg("Password added successfully!", MessageType::Success);
                 self.ca_form();
                 self.screen = Screen::MainMenu;
-                self.load_all_tags();
+                self.load_at();
             }
         }
     }
@@ -230,7 +230,7 @@ impl App {
             return;
         }
         if let Some(ref mut vault) = self.vault {
-            if let Some(entry) = vault.e.iter_mut().find(|e| e.id == self.edit_entry_id) {
+            if let Some(entry) = vault.e.iter_mut().find(|e| e.id == self.edit_eid) {
                 let now = crate::get_timestamp();
                 if entry.p != self.n_entry_pass {
                     if entry.history.len() >= 5 {
@@ -255,16 +255,16 @@ impl App {
                     self.set_msg("Entry updated successfully!", MessageType::Success);
                     self.ca_form();
                     self.screen = Screen::MainMenu;
-                    self.load_all_tags();
+                    self.load_at();
                 }
             }
         }
     }
 
-    fn load_entry_for_edit(&mut self, entry_id: String) {
+    fn load_efe(&mut self, entry_id: String) {
         if let Some(ref vault) = self.vault {
             if let Some(entry) = vault.e.iter().find(|e| e.id == entry_id) {
-                self.edit_entry_id = entry.id.clone();
+                self.edit_eid = entry.id.clone();
                 self.n_entry_name = entry.n.clone();
                 self.n_entry_user = entry.u.clone();
                 self.n_entry_pass = entry.p.clone();
@@ -286,7 +286,7 @@ impl App {
                 } else {
                     self.set_msg(&format!("Deleted '{}'", removed.n), MessageType::Success);
                     self.screen = Screen::MainMenu;
-                    self.load_all_tags();
+                    self.load_at();
                 }
             } else {
                 self.set_msg("Invalid entry number!", MessageType::Error);
@@ -330,7 +330,7 @@ impl App {
         self.n_entry_tags.clear();
         self.tag_input.clear();
         self.add_fi = 0;
-        self.edit_entry_id.clear();
+        self.edit_eid.clear();
     }
 
     fn add_tag(&mut self) {
@@ -347,7 +347,7 @@ impl App {
         }
     }
 
-    fn load_all_tags(&mut self) {
+    fn load_at(&mut self) {
         if let Some(ref vault) = self.vault {
             let mut tag_map: HashMap<String, usize> = HashMap::new();
             for entry in &vault.e {
@@ -360,8 +360,8 @@ impl App {
         }
     }
 
-    fn filter_by_tag(&mut self, tag: Option<String>) {
-        self.active_tag_filter = tag.clone();
+    fn filter_bt(&mut self, tag: Option<String>) {
+        self.active_tf = tag.clone();
         if let Some(ref vault) = self.vault {
             if let Some(filter_tag) = tag {
                 self.entry_disp = vault
@@ -376,7 +376,7 @@ impl App {
         }
     }
 
-    fn get_time_ago(&self, timestamp: u64) -> String {
+    fn get_ta(&self, timestamp: u64) -> String {
         let now = crate::get_timestamp();
         let diff = now.saturating_sub(timestamp);
         let days = diff / 86400;
@@ -812,7 +812,7 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                 .map(|(i, entry)| {
                     let is_selected = i == app.selected_entry;
                     let prefix = if is_selected { "▶ " } else { "  " };
-                    let time_ago = app.get_time_ago(entry.last_modified);
+                    let time_ago = app.get_ta(entry.last_modified);
                     let mut lines = vec![
                         Line::from(vec![
                             Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
@@ -1127,7 +1127,7 @@ fn draw_history(f: &mut Frame, size: Rect, app: &App) {
                     .rev()
                     .enumerate()
                     .map(|(i, hist)| {
-                        let time_ago = app.get_time_ago(hist.changed_at);
+                        let time_ago = app.get_ta(hist.changed_at);
                         let lines = vec![
                             Line::from(vec![
                                 Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::purple())),
@@ -1166,7 +1166,7 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
     f.render_widget(block, size);
-    let title = if let Some(ref tag) = app.active_tag_filter {
+    let title = if let Some(ref tag) = app.active_tf {
         format!("Filtering by: [{}] ({} entries)", tag, app.entry_disp.len())
     } else {
         "Select a tag to filter".to_string()
@@ -1183,12 +1183,12 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
     } else {
         let mut items = vec![ListItem::new(Line::from(vec![
             Span::styled(
-                if app.selected_tag_filter == 0 { "▶ " } else { "  " },
+                if app.select_tf == 0 { "▶ " } else { "  " },
                 Style::default().fg(GruvboxColors::yellow())
             ),
             Span::styled(
                 format!("All ({} total)", app.vault.as_ref().map_or(0, |v| v.e.len())),
-                if app.selected_tag_filter == 0 {
+                if app.select_tf == 0 {
                     Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(GruvboxColors::fg())
@@ -1196,7 +1196,7 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
             ),
         ]))];
         for (idx, (tag, count)) in app.all_tags.iter().enumerate() {
-            let is_selected = idx + 1 == app.selected_tag_filter;
+            let is_selected = idx + 1 == app.select_tf;
             let prefix = if is_selected { "▶ " } else { "  " };
             items.push(ListItem::new(Line::from(vec![
                 Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
@@ -1213,7 +1213,7 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
         let list = List::new(items).block(Block::default().borders(Borders::NONE));
         f.render_widget(list, chunks[1]);
     }
-    if app.active_tag_filter.is_some() {
+    if app.active_tf.is_some() {
         let filter_info = Paragraph::new("Press V to view filtered passwords")
             .style(Style::default().fg(GruvboxColors::aqua()))
             .alignment(Alignment::Center);
@@ -1461,7 +1461,7 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
         KeyCode::Char('1') => { app.screen = Screen::ViewPasswords; app.msg.clear(); }
         KeyCode::Char('2') => { app.screen = Screen::AddPassword; app.ca_form(); app.msg.clear(); }
         KeyCode::Char('3') => { app.screen = Screen::SearchPassword; app.search_query.clear(); app.entry_disp.clear(); app.msg.clear(); }
-        KeyCode::Char('4') => { app.screen = Screen::FilterByTag; app.selected_tag_filter = 0; app.filter_by_tag(None); app.msg.clear(); }
+        KeyCode::Char('4') => { app.screen = Screen::FilterByTag; app.select_tf = 0; app.filter_bt(None); app.msg.clear(); }
         KeyCode::Char('5') => { app.screen = Screen::GeneratePassword; app.input_buffer = String::from("16"); app.gen_pwd.clear(); app.msg.clear(); }
         KeyCode::Char('6') => { app.screen = Screen::DeletePassword; app.input_buffer.clear(); app.msg.clear(); }
         KeyCode::Char('7') => return true,
@@ -1471,7 +1471,7 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
                 0 => app.screen = Screen::ViewPasswords,
                 1 => { app.screen = Screen::AddPassword; app.ca_form(); }
                 2 => { app.screen = Screen::SearchPassword; app.search_query.clear(); app.entry_disp.clear(); }
-                3 => { app.screen = Screen::FilterByTag; app.selected_tag_filter = 0; app.filter_by_tag(None); }
+                3 => { app.screen = Screen::FilterByTag; app.select_tf = 0; app.filter_bt(None); }
                 4 => { app.screen = Screen::GeneratePassword; app.input_buffer = String::from("16"); app.gen_pwd.clear(); }
                 5 => { app.screen = Screen::DeletePassword; app.input_buffer.clear(); }
                 6 => return true,
@@ -1502,7 +1502,7 @@ fn handle_vpi(app: &mut App, key: KeyCode) {
             if let Some(ref vault) = app.vault {
                 if app.selected_entry < vault.e.len() {
                     let entry_id = vault.e[app.selected_entry].id.clone();
-                    app.load_entry_for_edit(entry_id);
+                    app.load_efe(entry_id);
                 }
             }
         }
@@ -1708,30 +1708,30 @@ fn handle_di(app: &mut App, key: KeyCode) {
 fn handle_tfi(app: &mut App, key: KeyCode) {
     match key {
         KeyCode::Up => {
-            if app.selected_tag_filter > 0 {
-                app.selected_tag_filter -= 1;
+            if app.select_tf > 0 {
+                app.select_tf -= 1;
             }
         }
         KeyCode::Down => {
-            if app.selected_tag_filter < app.all_tags.len() {
-                app.selected_tag_filter += 1;
+            if app.select_tf < app.all_tags.len() {
+                app.select_tf += 1;
             }
         }
         KeyCode::Enter => {
-            if app.selected_tag_filter == 0 {
-                app.filter_by_tag(None);
-            } else if app.selected_tag_filter <= app.all_tags.len() {
-                let tag = app.all_tags[app.selected_tag_filter - 1].0.clone();
-                app.filter_by_tag(Some(tag));
+            if app.select_tf == 0 {
+                app.filter_bt(None);
+            } else if app.select_tf <= app.all_tags.len() {
+                let tag = app.all_tags[app.select_tf - 1].0.clone();
+                app.filter_bt(Some(tag));
             }
         }
         KeyCode::Char('v') | KeyCode::Char('V') => {
-            if app.active_tag_filter.is_some() && !app.entry_disp.is_empty() {
+            if app.active_tf.is_some() && !app.entry_disp.is_empty() {
                 app.screen = Screen::ViewPasswords;
             }
         }
         KeyCode::Esc => {
-            app.active_tag_filter = None;
+            app.active_tf = None;
             app.screen = Screen::MainMenu;
         }
         _ => {}
