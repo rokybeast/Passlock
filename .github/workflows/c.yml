@@ -19,6 +19,13 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential libsodium-dev libsodium23
 
+    - name: Debug sodium.h
+      run: |
+        echo "Listing libsodium files..."
+        dpkg -L libsodium-dev | grep -E "include|sodium"
+        echo "Trying to locate sodium.h..."
+        locate sodium.h 2>/dev/null || find /usr -name sodium.h 2>/dev/null
+
     - name: Test C crypto core
       working-directory: ./src/c
       run: |
@@ -31,4 +38,3 @@ jobs:
       working-directory: ./src/c
       run: |
         gcc -c vault_engine.c -o vault_engine.o -lsodium
-        ls -la *.c *.h

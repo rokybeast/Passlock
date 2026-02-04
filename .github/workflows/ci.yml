@@ -19,6 +19,13 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential golang-go libsodium-dev libsodium23
 
+    - name: Debug sodium.h
+      run: |
+        echo "Checking sodium.h location..."
+        find /usr -name sodium.h 2>/dev/null
+        echo "Checking libsodium installation..."
+        dpkg -L libsodium-dev | head -20
+
     - name: Build everything with Makefile
       run: make build
 
@@ -28,9 +35,7 @@ jobs:
     - name: Verify all components
       run: |
         if [ -f ./target/release/passlock ]; then
-          echo "Rust binary exists"
           exit 0
         else
-          echo "Rust binary not found"
           exit 1
         fi

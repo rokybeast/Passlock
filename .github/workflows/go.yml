@@ -26,8 +26,7 @@ jobs:
     - name: Verify web assets
       run: |
         if [ -d web ] && [ -f web/index.html ]; then
-          echo "Web assets exist"
+          exit 0
         else
-          echo "Web assets not found"
           exit 1
         fi
