@@ -28,7 +28,7 @@ jobs:
         
         echo "Running C tests..."
         gcc -DTEST_MODE -o test_crypto crypto_core.c -Wall -Wextra -lsodium
-        ./test_crypto || echo "C tests may have issues"
+        ./test_crypto
         rm -f test_crypto
 
     - name: Compile vault engine
@@ -38,18 +38,17 @@ jobs:
         gcc -c vault_engine.c -o vault_engine.o
         echo "Vault engine compiled"
         
-        # Check if all C files exist
         echo "C source files:"
         ls -la *.c *.h
 
     - name: Verify C FFI integration
       run: |
-        echo "Checking C FFI integration with Rust..."
+        echo "Checking C FFI integration..."
         if [ -f build.rs ]; then
           echo "Found build.rs for C FFI"
-          cat build.rs | head -10
         else
           echo "No build.rs found"
+          exit 1
         fi
         
-        echo "C CI completed!"
+        echo "C CI completed successfully!"

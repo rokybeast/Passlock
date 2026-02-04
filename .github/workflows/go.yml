@@ -25,28 +25,19 @@ jobs:
         go build -o passlock-api api_server.go
         echo "Go API server compiled: ./passlock-api"
 
-    - name: Check Go code quality
-      continue-on-error: true
-      run: |
-        echo "Checking Go code..."
-        go vet api_server.go
-        gofmt -d api_server.go || echo "Formatting issues (run 'gofmt -w api_server.go' to fix)"
-
     - name: Verify web assets
       run: |
         echo "Checking web assets..."
         if [ -d web ] && [ -f web/index.html ]; then
           echo "Web directory exists with index.html"
-          echo "Web files:"
-          ls -la web/
         else
           echo "Web directory or index.html not found"
+          exit 1
         fi
 
     - name: Test API server startup
-      continue-on-error: true
       run: |
         echo "Testing API server startup..."
-        timeout 3 ./passlock-api --help 2>&1 | head -5 || echo "API server compiled (may not have --help flag)"
+        timeout 3 ./passlock-api --help 2>&1 | head -5 || echo "✅ API server compiled (may not have --help flag)"
         
-        echo "Go CI completed!"
+        echo "Go CI completed successfully!"
