@@ -1,5 +1,5 @@
 use crate::crypto;
-use crate::models::{Entry, Vault, PasswordHistory};
+use crate::models::{Entry, PasswordHistory, Vault};
 use crate::storage;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
@@ -14,23 +14,47 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
     Frame, Terminal,
 };
-use std::io;
 use std::collections::HashMap;
+use std::io;
 
 struct GruvboxColors;
 impl GruvboxColors {
-    fn bg0() -> Color { Color::Rgb(40, 40, 40) }
-    fn _bg1() -> Color { Color::Rgb(60, 56, 54) }
-    fn _bg2() -> Color { Color::Rgb(80, 73, 69) }
-    fn fg() -> Color { Color::Rgb(235, 219, 178) }
-    fn red() -> Color { Color::Rgb(251, 73, 52) }
-    fn green() -> Color { Color::Rgb(184, 187, 38) }
-    fn yellow() -> Color { Color::Rgb(250, 189, 47) }
-    fn blue() -> Color { Color::Rgb(131, 165, 152) }
-    fn purple() -> Color { Color::Rgb(211, 134, 155) }
-    fn aqua() -> Color { Color::Rgb(142, 192, 124) }
-    fn orange() -> Color { Color::Rgb(254, 128, 25) }
-    fn gray() -> Color { Color::Rgb(146, 131, 116) }
+    fn bg0() -> Color {
+        Color::Rgb(40, 40, 40)
+    }
+    fn _bg1() -> Color {
+        Color::Rgb(60, 56, 54)
+    }
+    fn _bg2() -> Color {
+        Color::Rgb(80, 73, 69)
+    }
+    fn fg() -> Color {
+        Color::Rgb(235, 219, 178)
+    }
+    fn red() -> Color {
+        Color::Rgb(251, 73, 52)
+    }
+    fn green() -> Color {
+        Color::Rgb(184, 187, 38)
+    }
+    fn yellow() -> Color {
+        Color::Rgb(250, 189, 47)
+    }
+    fn blue() -> Color {
+        Color::Rgb(131, 165, 152)
+    }
+    fn purple() -> Color {
+        Color::Rgb(211, 134, 155)
+    }
+    fn aqua() -> Color {
+        Color::Rgb(142, 192, 124)
+    }
+    fn orange() -> Color {
+        Color::Rgb(254, 128, 25)
+    }
+    fn gray() -> Color {
+        Color::Rgb(146, 131, 116)
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -145,7 +169,10 @@ impl App {
         } else {
             self.screen = Screen::CreateVault;
             self.input_field = InputField::Password;
-            self.set_msg("No vault found. Create one to get started!", MessageType::Info);
+            self.set_msg(
+                "No vault found. Create one to get started!",
+                MessageType::Info,
+            );
         }
     }
 
@@ -198,8 +225,14 @@ impl App {
     }
 
     fn add_entry(&mut self) {
-        if self.n_entry_name.is_empty() || self.n_entry_user.is_empty() || self.n_entry_pass.is_empty() {
-            self.set_msg("Name, Username, and Password are required!", MessageType::Error);
+        if self.n_entry_name.is_empty()
+            || self.n_entry_user.is_empty()
+            || self.n_entry_pass.is_empty()
+        {
+            self.set_msg(
+                "Name, Username, and Password are required!",
+                MessageType::Error,
+            );
             return;
         }
         let now = crate::get_timestamp();
@@ -208,8 +241,16 @@ impl App {
             n: self.n_entry_name.clone(),
             u: self.n_entry_user.clone(),
             p: self.n_entry_pass.clone(),
-            url: if self.n_entry_url.is_empty() { None } else { Some(self.n_entry_url.clone()) },
-            nt: if self.n_entry_notes.is_empty() { None } else { Some(self.n_entry_notes.clone()) },
+            url: if self.n_entry_url.is_empty() {
+                None
+            } else {
+                Some(self.n_entry_url.clone())
+            },
+            nt: if self.n_entry_notes.is_empty() {
+                None
+            } else {
+                Some(self.n_entry_notes.clone())
+            },
             t: now,
             tags: self.n_entry_tags.clone(),
             history: Vec::new(),
@@ -233,8 +274,14 @@ impl App {
     }
 
     fn edit_entry(&mut self) {
-        if self.n_entry_name.is_empty() || self.n_entry_user.is_empty() || self.n_entry_pass.is_empty() {
-            self.set_msg("Name, Username, and Password are required!", MessageType::Error);
+        if self.n_entry_name.is_empty()
+            || self.n_entry_user.is_empty()
+            || self.n_entry_pass.is_empty()
+        {
+            self.set_msg(
+                "Name, Username, and Password are required!",
+                MessageType::Error,
+            );
             return;
         }
         if let Some(ref mut vault) = self.vault {
@@ -252,11 +299,19 @@ impl App {
                 entry.n = self.n_entry_name.clone();
                 entry.u = self.n_entry_user.clone();
                 entry.p = self.n_entry_pass.clone();
-                entry.url = if self.n_entry_url.is_empty() { None } else { Some(self.n_entry_url.clone()) };
-                entry.nt = if self.n_entry_notes.is_empty() { None } else { Some(self.n_entry_notes.clone()) };
+                entry.url = if self.n_entry_url.is_empty() {
+                    None
+                } else {
+                    Some(self.n_entry_url.clone())
+                };
+                entry.nt = if self.n_entry_notes.is_empty() {
+                    None
+                } else {
+                    Some(self.n_entry_notes.clone())
+                };
                 entry.tags = self.n_entry_tags.clone();
                 entry.last_modified = now;
-                
+
                 if let Err(e) = storage::svv(vault, &self.master_pwd) {
                     self.set_msg(&format!("Failed to save: {e}"), MessageType::Error);
                 } else {
@@ -322,7 +377,9 @@ impl App {
                     .filter(|e| {
                         e.n.to_lowercase().contains(&query)
                             || e.u.to_lowercase().contains(&query)
-                            || e.url.as_ref().is_some_and(|u| u.to_lowercase().contains(&query))
+                            || e.url
+                                .as_ref()
+                                .is_some_and(|u| u.to_lowercase().contains(&query))
                             || e.tags.iter().any(|t| t.to_lowercase().contains(&query))
                     })
                     .cloned()
@@ -332,7 +389,11 @@ impl App {
     }
 
     fn gen_pwd(&mut self) {
-        let len = self.input_buffer.parse::<usize>().unwrap_or(16).clamp(4,64);
+        let len = self
+            .input_buffer
+            .parse::<usize>()
+            .unwrap_or(16)
+            .clamp(4, 64);
         self.gen_pwd = crypto::gen_pwd(len);
     }
 
@@ -434,7 +495,11 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
     app.check_vault();
     let res = run_app(&mut terminal, &mut app);
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
     terminal.show_cursor()?;
     if let Err(err) = res {
         println!("Error: {err:?}");
@@ -442,7 +507,10 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn run_app<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
+fn run_app<B: ratatui::backend::Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui(f, app))?;
         if let Event::Key(key) = event::read()? {
@@ -529,9 +597,15 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3), Constraint::Length(1), Constraint::Length(3),
-            Constraint::Length(3), Constraint::Length(3), Constraint::Length(1),
-            Constraint::Length(3), Constraint::Min(2), Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(1),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(1),
+            Constraint::Length(3),
+            Constraint::Min(2),
+            Constraint::Length(3),
         ])
         .split(area);
     let block = Block::default()
@@ -547,7 +621,9 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
     f.render_widget(title, chunks[0]);
     let pwd_text = format!("Password: {}", "•".repeat(app.input_buffer.len()));
     let pwd_style = if app.input_field == InputField::Password {
-        Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(GruvboxColors::green())
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(GruvboxColors::gray())
     };
@@ -564,7 +640,8 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
         };
         let bar_width = (35 * strength.percentage) / 100;
         let empty_width = 35 - bar_width;
-        let bar = format!("[{}{}] {}% - {}", 
+        let bar = format!(
+            "[{}{}] {}% - {}",
             "█".repeat(bar_width as usize),
             "─".repeat(empty_width as usize),
             strength.percentage,
@@ -585,7 +662,9 @@ fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
     }
     let confirm_text = format!("Confirm: {}", "•".repeat(app.input_buffer2.len()));
     let confirm_style = if app.input_field == InputField::PasswordConfirm {
-        Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(GruvboxColors::green())
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(GruvboxColors::gray())
     };
@@ -615,8 +694,11 @@ fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3), Constraint::Length(1), Constraint::Length(3),
-            Constraint::Min(2), Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(1),
+            Constraint::Length(3),
+            Constraint::Min(2),
+            Constraint::Length(3),
         ])
         .split(area);
     let block = Block::default()
@@ -631,8 +713,11 @@ fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
     let pwd_text = format!("Password: {}", "•".repeat(app.input_buffer.len()));
-    let password_input = Paragraph::new(pwd_text)
-        .style(Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD));
+    let password_input = Paragraph::new(pwd_text).style(
+        Style::default()
+            .fg(GruvboxColors::green())
+            .add_modifier(Modifier::BOLD),
+    );
     f.render_widget(password_input, chunks[2]);
     if !app.msg.is_empty() {
         let msg_style = match app.msg_type {
@@ -656,7 +741,11 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([Constraint::Length(5), Constraint::Min(10), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(5),
+            Constraint::Min(10),
+            Constraint::Length(3),
+        ])
         .split(size);
     let header_block = Block::default()
         .borders(Borders::ALL)
@@ -672,22 +761,39 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
             String::new()
         };
         vec![
-            Line::from(vec![
-                Span::styled("█▓▒░ PASSLOCK ░▒▓█", Style::default().fg(GruvboxColors::orange()).add_modifier(Modifier::BOLD)),
-            ]),
+            Line::from(vec![Span::styled(
+                "█▓▒░ PASSLOCK ░▒▓█",
+                Style::default()
+                    .fg(GruvboxColors::orange())
+                    .add_modifier(Modifier::BOLD),
+            )]),
             Line::from(""),
             Line::from(vec![
                 Span::styled("Vault: ", Style::default().fg(GruvboxColors::gray())),
-                Span::styled("UNLOCKED ", Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "UNLOCKED ",
+                    Style::default()
+                        .fg(GruvboxColors::green())
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled("│ ", Style::default().fg(GruvboxColors::gray())),
-                Span::styled(format!("{total_count} passwords{filter_indicator} "), Style::default().fg(GruvboxColors::blue())),
+                Span::styled(
+                    format!("{total_count} passwords{filter_indicator} "),
+                    Style::default().fg(GruvboxColors::blue()),
+                ),
                 Span::styled("│ ", Style::default().fg(GruvboxColors::gray())),
-                Span::styled(format!("{tag_count} tags"), Style::default().fg(GruvboxColors::purple())),
+                Span::styled(
+                    format!("{tag_count} tags"),
+                    Style::default().fg(GruvboxColors::purple()),
+                ),
             ]),
         ]
     } else {
         vec![
-            Line::from(Span::styled("PASSLOCK", Style::default().fg(GruvboxColors::red()))),
+            Line::from(Span::styled(
+                "PASSLOCK",
+                Style::default().fg(GruvboxColors::red()),
+            )),
             Line::from(""),
             Line::from("No vault loaded"),
         ]
@@ -718,7 +824,9 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         .map(|(i, (num, title, desc))| {
             let is_selected = app.selected_section == 0 && i == app.selected_menu;
             let style = if is_selected {
-                Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(GruvboxColors::yellow())
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(GruvboxColors::fg())
             };
@@ -726,7 +834,10 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
             let lines = vec![
                 Line::from(vec![
                     Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
-                    Span::styled(format!("[{num}] "), Style::default().fg(GruvboxColors::orange())),
+                    Span::styled(
+                        format!("[{num}] "),
+                        Style::default().fg(GruvboxColors::orange()),
+                    ),
                     Span::styled(*title, style),
                 ]),
                 Line::from(vec![
@@ -758,7 +869,9 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         .map(|(i, (num, title, desc))| {
             let is_selected = app.selected_section == 1 && i == app.selected_menu - 3;
             let style = if is_selected {
-                Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(GruvboxColors::yellow())
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(GruvboxColors::fg())
             };
@@ -766,7 +879,10 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
             let lines = vec![
                 Line::from(vec![
                     Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
-                    Span::styled(format!("[{num}] "), Style::default().fg(GruvboxColors::orange())),
+                    Span::styled(
+                        format!("[{num}] "),
+                        Style::default().fg(GruvboxColors::orange()),
+                    ),
                     Span::styled(*title, style),
                 ]),
                 Line::from(vec![
@@ -801,10 +917,11 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(GruvboxColors::gray()))
         .style(Style::default().bg(GruvboxColors::bg0()));
-    let help = Paragraph::new("↑/↓: Navigate  │  ←/→: Switch section  │  Enter: Select  │  Esc: Exit")
-        .block(help_block)
-        .style(Style::default().fg(GruvboxColors::gray()))
-        .alignment(Alignment::Center);
+    let help =
+        Paragraph::new("↑/↓: Navigate  │  ←/→: Switch section  │  Enter: Select  │  Esc: Exit")
+            .block(help_block)
+            .style(Style::default().fg(GruvboxColors::gray()))
+            .alignment(Alignment::Center);
     f.render_widget(help, main_layout[2]);
 }
 
@@ -812,7 +929,11 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(3),
+        ])
         .split(size);
     let block = Block::default()
         .borders(Borders::ALL)
@@ -821,7 +942,7 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
     f.render_widget(block.clone(), size);
-    
+
     // Show filter status if active
     let filter_status = if let Some(ref tag) = app.active_tf {
         format!(" (Filtered by: {tag})")
@@ -830,12 +951,16 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
     } else {
         String::new()
     };
-    
-    let title = Paragraph::new(format!("Total: {} entries{} | Press E to edit, H for history", app.entry_disp.len(), filter_status))
-        .style(Style::default().fg(GruvboxColors::yellow()))
-        .alignment(Alignment::Center);
+
+    let title = Paragraph::new(format!(
+        "Total: {} entries{} | Press E to edit, H for history",
+        app.entry_disp.len(),
+        filter_status
+    ))
+    .style(Style::default().fg(GruvboxColors::yellow()))
+    .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-    
+
     if app.entry_disp.is_empty() {
         let empty = if app.active_tf.is_some() || !app.search_query.is_empty() {
             "[ No matching entries found ]"
@@ -858,15 +983,24 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                 let mut lines = vec![
                     Line::from(vec![
                         Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
-                        Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::orange())),
-                        Span::styled(&entry.n, 
+                        Span::styled(
+                            format!("[{}] ", i + 1),
+                            Style::default().fg(GruvboxColors::orange()),
+                        ),
+                        Span::styled(
+                            &entry.n,
                             if is_selected {
-                                Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD)
+                                Style::default()
+                                    .fg(GruvboxColors::yellow())
+                                    .add_modifier(Modifier::BOLD)
                             } else {
                                 Style::default().fg(GruvboxColors::yellow())
-                            }
+                            },
                         ),
-                        Span::styled(format!("  (Modified: {time_ago})"), Style::default().fg(GruvboxColors::gray())),
+                        Span::styled(
+                            format!("  (Modified: {time_ago})"),
+                            Style::default().fg(GruvboxColors::gray()),
+                        ),
                     ]),
                     Line::from(vec![
                         Span::raw("     "),
@@ -889,20 +1023,25 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                 if !entry.history.is_empty() {
                     lines.push(Line::from(vec![
                         Span::raw("     "),
-                        Span::styled(format!("├─ History: {} changes", entry.history.len()), 
-                            Style::default().fg(GruvboxColors::purple())),
+                        Span::styled(
+                            format!("├─ History: {} changes", entry.history.len()),
+                            Style::default().fg(GruvboxColors::purple()),
+                        ),
                     ]));
                 }
                 if !entry.tags.is_empty() {
                     lines.push(Line::from(vec![
                         Span::raw("     "),
                         Span::styled("└─ Tags: ", Style::default().fg(GruvboxColors::gray())),
-                        Span::styled(entry.tags.join(", "), Style::default().fg(GruvboxColors::orange())),
+                        Span::styled(
+                            entry.tags.join(", "),
+                            Style::default().fg(GruvboxColors::orange()),
+                        ),
                     ]));
                 } else {
                     lines.push(Line::from(vec![
                         Span::raw("     "),
-                        Span::styled("└─", Style::default().fg(GruvboxColors::gray()))
+                        Span::styled("└─", Style::default().fg(GruvboxColors::gray())),
                     ]));
                 }
                 lines.push(Line::from(""));
@@ -924,9 +1063,19 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(2), Constraint::Length(1), Constraint::Length(2), Constraint::Length(2),
-            Constraint::Length(2), Constraint::Length(2), Constraint::Length(2), Constraint::Length(2),
-            Constraint::Length(2), Constraint::Length(3), Constraint::Length(4), Constraint::Min(1), Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(1),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(3),
+            Constraint::Length(4),
+            Constraint::Min(1),
+            Constraint::Length(2),
         ])
         .split(area);
     let block = Block::default()
@@ -940,16 +1089,30 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-    let active_style = Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD);
+    let active_style = Style::default()
+        .fg(GruvboxColors::green())
+        .add_modifier(Modifier::BOLD);
     let inactive_style = Style::default().fg(GruvboxColors::gray());
-    let name_field = Paragraph::new(format!("Name: {}", app.n_entry_name))
-        .style(if app.add_fi == 0 { active_style } else { inactive_style });
+    let name_field =
+        Paragraph::new(format!("Name: {}", app.n_entry_name)).style(if app.add_fi == 0 {
+            active_style
+        } else {
+            inactive_style
+        });
     f.render_widget(name_field, chunks[2]);
-    let user_field = Paragraph::new(format!("Username: {}", app.n_entry_user))
-        .style(if app.add_fi == 1 { active_style } else { inactive_style });
+    let user_field =
+        Paragraph::new(format!("Username: {}", app.n_entry_user)).style(if app.add_fi == 1 {
+            active_style
+        } else {
+            inactive_style
+        });
     f.render_widget(user_field, chunks[3]);
-    let pass_field = Paragraph::new(format!("Password: {}", app.n_entry_pass))
-        .style(if app.add_fi == 2 { active_style } else { inactive_style });
+    let pass_field =
+        Paragraph::new(format!("Password: {}", app.n_entry_pass)).style(if app.add_fi == 2 {
+            active_style
+        } else {
+            inactive_style
+        });
     f.render_widget(pass_field, chunks[4]);
     if !app.n_entry_pass.is_empty() && app.add_fi == 2 {
         let strength = crypto::calc_pwd_strength(&app.n_entry_pass);
@@ -962,7 +1125,8 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         };
         let bar_width = (35 * strength.percentage) / 100;
         let empty_width = 35 - bar_width;
-        let bar = format!("[{}{}] {}% - {}", 
+        let bar = format!(
+            "[{}{}] {}% - {}",
             "█".repeat(bar_width as usize),
             "─".repeat(empty_width as usize),
             strength.percentage,
@@ -981,8 +1145,12 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
             f.render_widget(feedback, chunks[6]);
         }
     }
-    let url_field = Paragraph::new(format!("URL (optional): {}", app.n_entry_url))
-        .style(if app.add_fi == 3 { active_style } else { inactive_style });
+    let url_field =
+        Paragraph::new(format!("URL (optional): {}", app.n_entry_url)).style(if app.add_fi == 3 {
+            active_style
+        } else {
+            inactive_style
+        });
     f.render_widget(url_field, chunks[7]);
     let tags_text = if app.add_fi == 4 {
         format!("Tags: {} ← Enter to add", app.tag_input)
@@ -990,11 +1158,16 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         "Tags: (Tab to focus)".to_string()
     };
     let tags_input = Paragraph::new(tags_text)
-        .style(if app.add_fi == 4 { active_style } else { inactive_style })
+        .style(if app.add_fi == 4 {
+            active_style
+        } else {
+            inactive_style
+        })
         .wrap(Wrap { trim: true });
     f.render_widget(tags_input, chunks[8]);
     if !app.n_entry_tags.is_empty() {
-        let tags_display = app.n_entry_tags
+        let tags_display = app
+            .n_entry_tags
             .iter()
             .enumerate()
             .map(|(i, tag)| format!("[{}]{} ", i + 1, tag))
@@ -1006,7 +1179,11 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
         f.render_widget(tags_widget, chunks[9]);
     }
     let notes = Paragraph::new(format!("Notes:\n{}", app.n_entry_notes))
-        .style(if app.add_fi == 5 { active_style } else { inactive_style })
+        .style(if app.add_fi == 5 {
+            active_style
+        } else {
+            inactive_style
+        })
         .wrap(Wrap { trim: false });
     f.render_widget(notes, chunks[10]);
     if !app.msg.is_empty() {
@@ -1021,9 +1198,10 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
             .alignment(Alignment::Center);
         f.render_widget(msg, chunks[11]);
     }
-    let help = Paragraph::new("Tab: Next field │ Enter: Add tag/Save │ 1-9: Remove tag │ Esc: Cancel")
-        .style(Style::default().fg(GruvboxColors::gray()))
-        .alignment(Alignment::Center);
+    let help =
+        Paragraph::new("Tab: Next field │ Enter: Add tag/Save │ 1-9: Remove tag │ Esc: Cancel")
+            .style(Style::default().fg(GruvboxColors::gray()))
+            .alignment(Alignment::Center);
     f.render_widget(help, chunks[12]);
 }
 
@@ -1033,9 +1211,19 @@ fn draw_edit_pwd(f: &mut Frame, size: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(2), Constraint::Length(1), Constraint::Length(2), Constraint::Length(2),
-            Constraint::Length(2), Constraint::Length(2), Constraint::Length(2), Constraint::Length(2),
-            Constraint::Length(2), Constraint::Length(3), Constraint::Length(4), Constraint::Min(1), Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(1),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(3),
+            Constraint::Length(4),
+            Constraint::Min(1),
+            Constraint::Length(2),
         ])
         .split(area);
     let block = Block::default()
@@ -1049,16 +1237,30 @@ fn draw_edit_pwd(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-    let active_style = Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD);
+    let active_style = Style::default()
+        .fg(GruvboxColors::green())
+        .add_modifier(Modifier::BOLD);
     let inactive_style = Style::default().fg(GruvboxColors::gray());
-    let name_field = Paragraph::new(format!("Name: {}", app.n_entry_name))
-        .style(if app.add_fi == 0 { active_style } else { inactive_style });
+    let name_field =
+        Paragraph::new(format!("Name: {}", app.n_entry_name)).style(if app.add_fi == 0 {
+            active_style
+        } else {
+            inactive_style
+        });
     f.render_widget(name_field, chunks[2]);
-    let user_field = Paragraph::new(format!("Username: {}", app.n_entry_user))
-        .style(if app.add_fi == 1 { active_style } else { inactive_style });
+    let user_field =
+        Paragraph::new(format!("Username: {}", app.n_entry_user)).style(if app.add_fi == 1 {
+            active_style
+        } else {
+            inactive_style
+        });
     f.render_widget(user_field, chunks[3]);
-    let pass_field = Paragraph::new(format!("Password: {}", app.n_entry_pass))
-        .style(if app.add_fi == 2 { active_style } else { inactive_style });
+    let pass_field =
+        Paragraph::new(format!("Password: {}", app.n_entry_pass)).style(if app.add_fi == 2 {
+            active_style
+        } else {
+            inactive_style
+        });
     f.render_widget(pass_field, chunks[4]);
     if !app.n_entry_pass.is_empty() && app.add_fi == 2 {
         let strength = crypto::calc_pwd_strength(&app.n_entry_pass);
@@ -1071,7 +1273,8 @@ fn draw_edit_pwd(f: &mut Frame, size: Rect, app: &App) {
         };
         let bar_width = (35 * strength.percentage) / 100;
         let empty_width = 35 - bar_width;
-        let bar = format!("[{}{}] {}% - {}", 
+        let bar = format!(
+            "[{}{}] {}% - {}",
             "█".repeat(bar_width as usize),
             "─".repeat(empty_width as usize),
             strength.percentage,
@@ -1090,8 +1293,11 @@ fn draw_edit_pwd(f: &mut Frame, size: Rect, app: &App) {
             f.render_widget(feedback, chunks[6]);
         }
     }
-    let url_field = Paragraph::new(format!("URL: {}", app.n_entry_url))
-        .style(if app.add_fi == 3 { active_style } else { inactive_style });
+    let url_field = Paragraph::new(format!("URL: {}", app.n_entry_url)).style(if app.add_fi == 3 {
+        active_style
+    } else {
+        inactive_style
+    });
     f.render_widget(url_field, chunks[7]);
     let tags_text = if app.add_fi == 4 {
         format!("Tags: {} ← Enter to add", app.tag_input)
@@ -1099,11 +1305,16 @@ fn draw_edit_pwd(f: &mut Frame, size: Rect, app: &App) {
         "Tags: (Tab to focus)".to_string()
     };
     let tags_input = Paragraph::new(tags_text)
-        .style(if app.add_fi == 4 { active_style } else { inactive_style })
+        .style(if app.add_fi == 4 {
+            active_style
+        } else {
+            inactive_style
+        })
         .wrap(Wrap { trim: true });
     f.render_widget(tags_input, chunks[8]);
     if !app.n_entry_tags.is_empty() {
-        let tags_display = app.n_entry_tags
+        let tags_display = app
+            .n_entry_tags
             .iter()
             .enumerate()
             .map(|(i, tag)| format!("[{}]{} ", i + 1, tag))
@@ -1115,7 +1326,11 @@ fn draw_edit_pwd(f: &mut Frame, size: Rect, app: &App) {
         f.render_widget(tags_widget, chunks[9]);
     }
     let notes = Paragraph::new(format!("Notes:\n{}", app.n_entry_notes))
-        .style(if app.add_fi == 5 { active_style } else { inactive_style })
+        .style(if app.add_fi == 5 {
+            active_style
+        } else {
+            inactive_style
+        })
         .wrap(Wrap { trim: false });
     f.render_widget(notes, chunks[10]);
     if !app.msg.is_empty() {
@@ -1140,7 +1355,11 @@ fn draw_history(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(3),
+        ])
         .split(size);
     let block = Block::default()
         .borders(Borders::ALL)
@@ -1155,9 +1374,10 @@ fn draw_history(f: &mut Frame, size: Rect, app: &App) {
             let entry = &app.entry_disp[app.selected_entry];
             // Find the same entry in vault by ID
             if let Some(vault_entry) = vault.e.iter().find(|e| e.id == entry.id) {
-                let title = Paragraph::new(format!("History for: {} (Last 5 changes)", vault_entry.n))
-                    .style(Style::default().fg(GruvboxColors::yellow()))
-                    .alignment(Alignment::Center);
+                let title =
+                    Paragraph::new(format!("History for: {} (Last 5 changes)", vault_entry.n))
+                        .style(Style::default().fg(GruvboxColors::yellow()))
+                        .alignment(Alignment::Center);
                 f.render_widget(title, chunks[0]);
                 if vault_entry.history.is_empty() {
                     let empty = Paragraph::new("[ No password changes recorded ]")
@@ -1174,12 +1394,21 @@ fn draw_history(f: &mut Frame, size: Rect, app: &App) {
                             let time_ago = app.get_ta(hist.changed_at);
                             let lines = vec![
                                 Line::from(vec![
-                                    Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::purple())),
-                                    Span::styled(&hist.password, Style::default().fg(GruvboxColors::green())),
+                                    Span::styled(
+                                        format!("[{}] ", i + 1),
+                                        Style::default().fg(GruvboxColors::purple()),
+                                    ),
+                                    Span::styled(
+                                        &hist.password,
+                                        Style::default().fg(GruvboxColors::green()),
+                                    ),
                                 ]),
                                 Line::from(vec![
                                     Span::raw("    "),
-                                    Span::styled(format!("Changed: {time_ago}"), Style::default().fg(GruvboxColors::gray())),
+                                    Span::styled(
+                                        format!("Changed: {time_ago}"),
+                                        Style::default().fg(GruvboxColors::gray()),
+                                    ),
                                 ]),
                                 Line::from(""),
                             ];
@@ -1202,7 +1431,12 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(3),
+            Constraint::Length(3),
+        ])
         .split(size);
     let block = Block::default()
         .borders(Borders::ALL)
@@ -1229,15 +1463,20 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
         let mut items = vec![ListItem::new(Line::from(vec![
             Span::styled(
                 if app.select_tf == 0 { "▶ " } else { "  " },
-                Style::default().fg(GruvboxColors::yellow())
+                Style::default().fg(GruvboxColors::yellow()),
             ),
             Span::styled(
-                format!("All ({} total)", app.vault.as_ref().map_or(0, |v| v.e.len())),
+                format!(
+                    "All ({} total)",
+                    app.vault.as_ref().map_or(0, |v| v.e.len())
+                ),
                 if app.select_tf == 0 {
-                    Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(GruvboxColors::green())
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(GruvboxColors::fg())
-                }
+                },
             ),
         ]))];
         for (idx, (tag, count)) in app.all_tags.iter().enumerate() {
@@ -1248,10 +1487,12 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
                 Span::styled(
                     format!("[{tag}] ({count} entries)"),
                     if is_selected {
-                        Style::default().fg(GruvboxColors::orange()).add_modifier(Modifier::BOLD)
+                        Style::default()
+                            .fg(GruvboxColors::orange())
+                            .add_modifier(Modifier::BOLD)
                     } else {
                         Style::default().fg(GruvboxColors::fg())
-                    }
+                    },
                 ),
             ])));
         }
@@ -1274,7 +1515,12 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(3),
+        ])
         .split(size);
     let block = Block::default()
         .borders(Borders::ALL)
@@ -1287,8 +1533,11 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-    let search = Paragraph::new(format!("Search: {}", app.search_query))
-        .style(Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD));
+    let search = Paragraph::new(format!("Search: {}", app.search_query)).style(
+        Style::default()
+            .fg(GruvboxColors::green())
+            .add_modifier(Modifier::BOLD),
+    );
     f.render_widget(search, chunks[1]);
     if app.entry_disp.is_empty() && !app.search_query.is_empty() {
         let empty = Paragraph::new("[ No matches found ]")
@@ -1303,7 +1552,12 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
                 let mut lines = vec![
                     Line::from(vec![
                         Span::styled("• ", Style::default().fg(GruvboxColors::orange())),
-                        Span::styled(&entry.n, Style::default().fg(GruvboxColors::yellow()).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            &entry.n,
+                            Style::default()
+                                .fg(GruvboxColors::yellow())
+                                .add_modifier(Modifier::BOLD),
+                        ),
                     ]),
                     Line::from(vec![
                         Span::styled("  User: ", Style::default().fg(GruvboxColors::gray())),
@@ -1317,7 +1571,10 @@ fn draw_search_pwd(f: &mut Frame, size: Rect, app: &App) {
                 if !entry.tags.is_empty() {
                     lines.push(Line::from(vec![
                         Span::styled("  Tags: ", Style::default().fg(GruvboxColors::gray())),
-                        Span::styled(entry.tags.join(", "), Style::default().fg(GruvboxColors::orange())),
+                        Span::styled(
+                            entry.tags.join(", "),
+                            Style::default().fg(GruvboxColors::orange()),
+                        ),
                     ]));
                 }
                 lines.push(Line::from(""));
@@ -1338,7 +1595,13 @@ fn draw_gen_pwd(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
-        .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Length(6), Constraint::Min(1), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(6),
+            Constraint::Min(1),
+            Constraint::Length(3),
+        ])
         .split(area);
     let block = Block::default()
         .borders(Borders::ALL)
@@ -1351,15 +1614,34 @@ fn draw_gen_pwd(f: &mut Frame, size: Rect, app: &App) {
         .style(Style::default().fg(GruvboxColors::yellow()))
         .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
-    let length_input = Paragraph::new(format!("Length: {}", if app.input_buffer.is_empty() { "16" } else { &app.input_buffer }))
-        .style(Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD));
+    let length_input = Paragraph::new(format!(
+        "Length: {}",
+        if app.input_buffer.is_empty() {
+            "16"
+        } else {
+            &app.input_buffer
+        }
+    ))
+    .style(
+        Style::default()
+            .fg(GruvboxColors::green())
+            .add_modifier(Modifier::BOLD),
+    );
     f.render_widget(length_input, chunks[1]);
     if !app.gen_pwd.is_empty() {
         let generated = Paragraph::new(vec![
             Line::from(""),
-            Line::from(Span::styled("Generated Password:", Style::default().fg(GruvboxColors::gray()))),
+            Line::from(Span::styled(
+                "Generated Password:",
+                Style::default().fg(GruvboxColors::gray()),
+            )),
             Line::from(""),
-            Line::from(Span::styled(&app.gen_pwd, Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD))),
+            Line::from(Span::styled(
+                &app.gen_pwd,
+                Style::default()
+                    .fg(GruvboxColors::green())
+                    .add_modifier(Modifier::BOLD),
+            )),
         ])
         .alignment(Alignment::Center);
         f.render_widget(generated, chunks[2]);
@@ -1374,7 +1656,12 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(3),
+            Constraint::Length(3),
+        ])
         .split(size);
     let block = Block::default()
         .borders(Borders::ALL)
@@ -1394,7 +1681,7 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
     } else {
         &app.entry_disp
     };
-    
+
     if entries_to_display.is_empty() {
         let empty = Paragraph::new("[ No passwords to delete ]")
             .style(Style::default().fg(GruvboxColors::gray()))
@@ -1406,7 +1693,10 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
             .enumerate()
             .map(|(i, entry)| {
                 ListItem::new(Line::from(vec![
-                    Span::styled(format!("[{}] ", i + 1), Style::default().fg(GruvboxColors::red())),
+                    Span::styled(
+                        format!("[{}] ", i + 1),
+                        Style::default().fg(GruvboxColors::red()),
+                    ),
                     Span::styled(&entry.n, Style::default().fg(GruvboxColors::fg())),
                 ]))
             })
@@ -1414,8 +1704,11 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
         let list = List::new(items).block(Block::default().borders(Borders::NONE));
         f.render_widget(list, chunks[1]);
     }
-    let input = Paragraph::new(format!("Entry number: {}", app.input_buffer))
-        .style(Style::default().fg(GruvboxColors::red()).add_modifier(Modifier::BOLD));
+    let input = Paragraph::new(format!("Entry number: {}", app.input_buffer)).style(
+        Style::default()
+            .fg(GruvboxColors::red())
+            .add_modifier(Modifier::BOLD),
+    );
     f.render_widget(input, chunks[2]);
     let help = Paragraph::new("Type number │ Enter: Delete │ Esc: Cancel")
         .style(Style::default().fg(GruvboxColors::gray()))
@@ -1508,9 +1801,9 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
                 app.selected_menu = 3;
             }
         }
-        KeyCode::Char('1') => { 
-            app.screen = Screen::ViewPasswords; 
-            app.msg.clear(); 
+        KeyCode::Char('1') => {
+            app.screen = Screen::ViewPasswords;
+            app.msg.clear();
             // Reset any active filters
             app.active_tf = None;
             app.search_query.clear();
@@ -1518,24 +1811,33 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
                 app.entry_disp = vault.e.clone();
             }
         }
-        KeyCode::Char('2') => { app.screen = Screen::AddPassword; app.ca_form(); app.msg.clear(); }
-        KeyCode::Char('3') => { 
-            app.screen = Screen::SearchPassword; 
-            app.search_query.clear(); 
-            app.entry_disp.clear(); 
-            app.msg.clear(); 
+        KeyCode::Char('2') => {
+            app.screen = Screen::AddPassword;
+            app.ca_form();
+            app.msg.clear();
         }
-        KeyCode::Char('4') => { 
-            app.screen = Screen::FilterByTag; 
-            app.select_tf = 0; 
-            app.filter_bt(None); 
-            app.msg.clear(); 
+        KeyCode::Char('3') => {
+            app.screen = Screen::SearchPassword;
+            app.search_query.clear();
+            app.entry_disp.clear();
+            app.msg.clear();
         }
-        KeyCode::Char('5') => { app.screen = Screen::GeneratePassword; app.input_buffer = String::from("16"); app.gen_pwd.clear(); app.msg.clear(); }
-        KeyCode::Char('6') => { 
-            app.screen = Screen::DeletePassword; 
-            app.input_buffer.clear(); 
-            app.msg.clear(); 
+        KeyCode::Char('4') => {
+            app.screen = Screen::FilterByTag;
+            app.select_tf = 0;
+            app.filter_bt(None);
+            app.msg.clear();
+        }
+        KeyCode::Char('5') => {
+            app.screen = Screen::GeneratePassword;
+            app.input_buffer = String::from("16");
+            app.gen_pwd.clear();
+            app.msg.clear();
+        }
+        KeyCode::Char('6') => {
+            app.screen = Screen::DeletePassword;
+            app.input_buffer.clear();
+            app.msg.clear();
             // Use filtered entries for deletion if filter is active
             if app.entry_disp.is_empty() {
                 if let Some(ref vault) = app.vault {
@@ -1547,25 +1849,36 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
         KeyCode::Enter => {
             app.msg.clear();
             match app.selected_menu {
-                0 => { 
-                    app.screen = Screen::ViewPasswords; 
+                0 => {
+                    app.screen = Screen::ViewPasswords;
                     app.active_tf = None;
                     app.search_query.clear();
                     if let Some(ref vault) = app.vault {
                         app.entry_disp = vault.e.clone();
                     }
                 }
-                1 => { app.screen = Screen::AddPassword; app.ca_form(); }
-                2 => { 
-                    app.screen = Screen::SearchPassword; 
-                    app.search_query.clear(); 
-                    app.entry_disp.clear(); 
+                1 => {
+                    app.screen = Screen::AddPassword;
+                    app.ca_form();
                 }
-                3 => { app.screen = Screen::FilterByTag; app.select_tf = 0; app.filter_bt(None); }
-                4 => { app.screen = Screen::GeneratePassword; app.input_buffer = String::from("16"); app.gen_pwd.clear(); }
-                5 => { 
-                    app.screen = Screen::DeletePassword; 
-                    app.input_buffer.clear(); 
+                2 => {
+                    app.screen = Screen::SearchPassword;
+                    app.search_query.clear();
+                    app.entry_disp.clear();
+                }
+                3 => {
+                    app.screen = Screen::FilterByTag;
+                    app.select_tf = 0;
+                    app.filter_bt(None);
+                }
+                4 => {
+                    app.screen = Screen::GeneratePassword;
+                    app.input_buffer = String::from("16");
+                    app.gen_pwd.clear();
+                }
+                5 => {
+                    app.screen = Screen::DeletePassword;
+                    app.input_buffer.clear();
                     // Use filtered entries for deletion if filter is active
                     if app.entry_disp.is_empty() {
                         if let Some(ref vault) = app.vault {
@@ -1626,41 +1939,47 @@ fn handle_vpi(app: &mut App, key: KeyCode) {
 
 fn handle_api(app: &mut App, key: KeyCode) {
     match key {
-        KeyCode::Char(c) => {
-            match app.add_fi {
-                0 => app.n_entry_name.push(c),
-                1 => app.n_entry_user.push(c),
-                2 => app.n_entry_pass.push(c),
-                3 => app.n_entry_url.push(c),
-                4 => {
-                    if !c.is_ascii_digit() {
-                        app.tag_input.push(c);
-                    } else if let Some(digit) = c.to_digit(10) {
-                        let idx = (digit as usize).saturating_sub(1);
-                        app.remove_tag(idx);
-                    }
+        KeyCode::Char(c) => match app.add_fi {
+            0 => app.n_entry_name.push(c),
+            1 => app.n_entry_user.push(c),
+            2 => app.n_entry_pass.push(c),
+            3 => app.n_entry_url.push(c),
+            4 => {
+                if !c.is_ascii_digit() {
+                    app.tag_input.push(c);
+                } else if let Some(digit) = c.to_digit(10) {
+                    let idx = (digit as usize).saturating_sub(1);
+                    app.remove_tag(idx);
                 }
-                5 => app.n_entry_notes.push(c),
-                _ => {}
             }
-        }
-        KeyCode::Backspace => {
-            match app.add_fi {
-                0 => { app.n_entry_name.pop(); }
-                1 => { app.n_entry_user.pop(); }
-                2 => { app.n_entry_pass.pop(); }
-                3 => { app.n_entry_url.pop(); }
-                4 => {
-                    if app.tag_input.is_empty() && !app.n_entry_tags.is_empty() {
-                        app.n_entry_tags.pop();
-                    } else {
-                        app.tag_input.pop();
-                    }
+            5 => app.n_entry_notes.push(c),
+            _ => {}
+        },
+        KeyCode::Backspace => match app.add_fi {
+            0 => {
+                app.n_entry_name.pop();
+            }
+            1 => {
+                app.n_entry_user.pop();
+            }
+            2 => {
+                app.n_entry_pass.pop();
+            }
+            3 => {
+                app.n_entry_url.pop();
+            }
+            4 => {
+                if app.tag_input.is_empty() && !app.n_entry_tags.is_empty() {
+                    app.n_entry_tags.pop();
+                } else {
+                    app.tag_input.pop();
                 }
-                5 => { app.n_entry_notes.pop(); }
-                _ => {}
             }
-        }
+            5 => {
+                app.n_entry_notes.pop();
+            }
+            _ => {}
+        },
         KeyCode::Tab => {
             app.add_fi = (app.add_fi + 1) % 6;
         }
@@ -1683,41 +2002,47 @@ fn handle_api(app: &mut App, key: KeyCode) {
 
 fn handle_epi(app: &mut App, key: KeyCode) {
     match key {
-        KeyCode::Char(c) => {
-            match app.add_fi {
-                0 => app.n_entry_name.push(c),
-                1 => app.n_entry_user.push(c),
-                2 => app.n_entry_pass.push(c),
-                3 => app.n_entry_url.push(c),
-                4 => {
-                    if !c.is_ascii_digit() {
-                        app.tag_input.push(c);
-                    } else if let Some(digit) = c.to_digit(10) {
-                        let idx = (digit as usize).saturating_sub(1);
-                        app.remove_tag(idx);
-                    }
+        KeyCode::Char(c) => match app.add_fi {
+            0 => app.n_entry_name.push(c),
+            1 => app.n_entry_user.push(c),
+            2 => app.n_entry_pass.push(c),
+            3 => app.n_entry_url.push(c),
+            4 => {
+                if !c.is_ascii_digit() {
+                    app.tag_input.push(c);
+                } else if let Some(digit) = c.to_digit(10) {
+                    let idx = (digit as usize).saturating_sub(1);
+                    app.remove_tag(idx);
                 }
-                5 => app.n_entry_notes.push(c),
-                _ => {}
             }
-        }
-        KeyCode::Backspace => {
-            match app.add_fi {
-                0 => { app.n_entry_name.pop(); }
-                1 => { app.n_entry_user.pop(); }
-                2 => { app.n_entry_pass.pop(); }
-                3 => { app.n_entry_url.pop(); }
-                4 => {
-                    if app.tag_input.is_empty() && !app.n_entry_tags.is_empty() {
-                        app.n_entry_tags.pop();
-                    } else {
-                        app.tag_input.pop();
-                    }
+            5 => app.n_entry_notes.push(c),
+            _ => {}
+        },
+        KeyCode::Backspace => match app.add_fi {
+            0 => {
+                app.n_entry_name.pop();
+            }
+            1 => {
+                app.n_entry_user.pop();
+            }
+            2 => {
+                app.n_entry_pass.pop();
+            }
+            3 => {
+                app.n_entry_url.pop();
+            }
+            4 => {
+                if app.tag_input.is_empty() && !app.n_entry_tags.is_empty() {
+                    app.n_entry_tags.pop();
+                } else {
+                    app.tag_input.pop();
                 }
-                5 => { app.n_entry_notes.pop(); }
-                _ => {}
             }
-        }
+            5 => {
+                app.n_entry_notes.pop();
+            }
+            _ => {}
+        },
         KeyCode::Tab => {
             app.add_fi = (app.add_fi + 1) % 6;
         }
@@ -1859,6 +2184,10 @@ pub fn _err(_: &str) {}
 pub fn _warn(_: &str) {}
 pub fn _sep() {}
 pub fn _menu() {}
-pub fn _inp(_: &str) -> String { String::new() }
-pub fn _sec_inp(_: &str) -> String { String::new() }
+pub fn _inp(_: &str) -> String {
+    String::new()
+}
+pub fn _sec_inp(_: &str) -> String {
+    String::new()
+}
 pub fn _pause() {}

@@ -1,6 +1,6 @@
 mod crypto;
-mod storage;
 mod models;
+mod storage;
 mod ui;
 
 use models::Vault;
@@ -8,18 +8,18 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    
+
     if args.len() >= 3 && args[1] == "create" {
         let pwd = &args[2];
-        
+
         if storage::vt_exi() {
             eprintln!("Error: vault already exists");
             std::process::exit(1);
         }
-        
+
         let salt = crypto::gen_salt();
         let v = Vault::new(salt);
-        
+
         match storage::svv(&v, pwd) {
             Ok(_) => {
                 let temp_path = storage::gtp_path();
@@ -35,10 +35,10 @@ fn main() {
             }
         }
     }
-    
+
     if args.len() >= 3 && args[1] == "unlock" {
         let pwd = &args[2];
-        
+
         match storage::ld_vt(pwd) {
             Ok(vault) => {
                 let temp_path = storage::gtp_path();
@@ -57,10 +57,10 @@ fn main() {
             }
         }
     }
-    
+
     if args.len() >= 3 && args[1] == "sync" {
         let pwd = &args[2];
-        
+
         let temp_path = storage::gtp_path();
         if let Ok(data) = std::fs::read_to_string(&temp_path) {
             if let Ok(vault) = serde_json::from_str::<Vault>(&data) {
@@ -75,7 +75,7 @@ fn main() {
         eprintln!("Error: failed to read temp file");
         std::process::exit(1);
     }
-    
+
     if let Err(e) = ui::run_tui() {
         eprintln!("Error running TUI: {e}");
         std::process::exit(1);

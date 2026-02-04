@@ -2,9 +2,9 @@ use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
-use argon2::{Argon2, PasswordHasher};
 use argon2::password_hash::SaltString;
-use base64::{Engine as _, engine::general_purpose};
+use argon2::{Argon2, PasswordHasher};
+use base64::{engine::general_purpose, Engine as _};
 use rand::Rng;
 use std::ffi::CString;
 
@@ -26,9 +26,9 @@ pub struct PwdStrength {
 pub fn calc_pwd_strength(pwd: &str) -> PwdStrength {
     let mut score = 0;
     let mut feedback = Vec::new();
-    
+
     let length = pwd.len();
-    
+
     if length >= 8 {
         score += 1;
     }
@@ -41,39 +41,41 @@ pub fn calc_pwd_strength(pwd: &str) -> PwdStrength {
     if length < 8 {
         feedback.push("Use at least 8 characters".to_string());
     }
-    
+
     let has_lower = pwd.chars().any(|c| c.is_lowercase());
     let has_upper = pwd.chars().any(|c| c.is_uppercase());
     let has_digit = pwd.chars().any(|c| c.is_ascii_digit());
-    let has_special = pwd.chars().any(|c| "!@#$%^&*()_+-=[]{};\':\"\\|,.<>/?".contains(c));
-    
+    let has_special = pwd
+        .chars()
+        .any(|c| "!@#$%^&*()_+-=[]{};\':\"\\|,.<>/?".contains(c));
+
     let mut variety_count = 0;
     if has_lower {
         variety_count += 1;
     } else {
         feedback.push("Add lowercase letters".to_string());
     }
-    
+
     if has_upper {
         variety_count += 1;
     } else {
         feedback.push("Add uppercase letters".to_string());
     }
-    
+
     if has_digit {
         variety_count += 1;
     } else {
         feedback.push("Add numbers".to_string());
     }
-    
+
     if has_special {
         variety_count += 1;
     } else {
         feedback.push("Add special characters".to_string());
     }
-    
+
     score += variety_count;
-    
+
     let common_patterns = vec!["123", "abc", "pwd", "qwerty", "admin"];
     let lower_password = pwd.to_lowercase();
     for pattern in common_patterns {
@@ -83,15 +85,15 @@ pub fn calc_pwd_strength(pwd: &str) -> PwdStrength {
             break;
         }
     }
-    
+
     if length >= 20 {
         score += 1;
     }
-    
+
     if score < 0 {
         score = 0;
     }
-    
+
     let (strength, percentage) = if score <= 2 {
         ("Weak".to_string(), 25)
     } else if score <= 4 {
@@ -101,7 +103,7 @@ pub fn calc_pwd_strength(pwd: &str) -> PwdStrength {
     } else {
         ("Strong".to_string(), 100)
     };
-    
+
     PwdStrength {
         score,
         strength,
@@ -138,10 +140,15 @@ pub fn enc(data: &str, pwd: &str, salt: &str) -> Result<String, String> {
     let h = unsafe { hash_str(pwd_c.as_ptr()) };
     let xor_k = h.to_le_bytes();
     unsafe {
-        xor_buf(data_bytes.as_mut_ptr(), data_bytes.len(), 
-                xor_k.as_ptr(), xor_k.len());
+        xor_buf(
+            data_bytes.as_mut_ptr(),
+            data_bytes.len(),
+            xor_k.as_ptr(),
+            xor_k.len(),
+        );
     }
-    let ct = c.encrypt(&n, data_bytes.as_slice())
+    let ct = c
+        .encrypt(&n, data_bytes.as_slice())
         .map_err(|e| e.to_string())?;
     let mut result = n_bytes.to_vec();
     result.extend_from_slice(&ct);
@@ -152,7 +159,8 @@ pub fn enc(data: &str, pwd: &str, salt: &str) -> Result<String, String> {
 pub fn dec(enc_data: &str, pwd: &str, salt: &str) -> Result<String, String> {
     let k = der_k(pwd, salt)?;
     let c = Aes256Gcm::new(&k.into());
-    let data = general_purpose::STANDARD.decode(enc_data)
+    let data = general_purpose::STANDARD
+        .decode(enc_data)
         .map_err(|e| e.to_string())?;
     if data.len() < 12 {
         return Err("invalid data".into());
@@ -160,14 +168,14 @@ pub fn dec(enc_data: &str, pwd: &str, salt: &str) -> Result<String, String> {
     let (n_bytes, ct) = data.split_at(12);
     let n_bytes: [u8; 12] = n_bytes.try_into().map_err(|_| "invalid nonce")?;
     let n = Nonce::from(n_bytes);
-    let mut pt = c.decrypt(&n, ct)
+    let mut pt = c
+        .decrypt(&n, ct)
         .map_err(|_| "decryption failed - wrong pwd?")?;
     let pwd_c = CString::new(pwd).unwrap();
     let h = unsafe { hash_str(pwd_c.as_ptr()) };
     let xor_k = h.to_le_bytes();
     unsafe {
-        xor_buf(pt.as_mut_ptr(), pt.len(), 
-                xor_k.as_ptr(), xor_k.len());
+        xor_buf(pt.as_mut_ptr(), pt.len(), xor_k.as_ptr(), xor_k.len());
     }
     unsafe { sec_zero(k.as_ptr() as *mut libc::c_void, k.len()) };
     String::from_utf8(pt).map_err(|e| e.to_string())
