@@ -13,7 +13,7 @@ pub fn generate_uuid() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    format!("{}", now)
+    format!("{now}")
 }
 
 pub fn get_timestamp() -> u64 {
