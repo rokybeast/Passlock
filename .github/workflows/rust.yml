@@ -8,6 +8,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  SODIUM_INCLUDE_DIR: /usr/include
+  SODIUM_LIB_DIR: /usr/lib/x86_64-linux-gnu
 
 jobs:
   setup:
@@ -22,10 +24,13 @@ jobs:
       with:
         toolchain: stable
 
-    - name: Install libsodium
+    - name: Install libsodium with headers
       run: |
         sudo apt-get update
-        sudo apt-get install -y libsodium-dev build-essential
+        sudo apt-get install -y libsodium-dev build-essential pkg-config
+        echo "Checking sodium.h location..."
+        find /usr -name "sodium.h" 2>/dev/null || echo "sodium.h not found in /usr"
+        find /usr/local -name "sodium.h" 2>/dev/null || echo "sodium.h not found in /usr/local"
 
     - name: Cache Rust dependencies
       uses: actions/cache@v4
@@ -46,13 +51,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Build Rust project
-      run: cargo build --release
+    - name: Build Rust project with C FFI
+      env:
+        PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
+      run: |
+        echo "Building with C FFI support..."
+        cargo build --release --verbose
       
     - name: Build verification
       run: |
         if [ -f ./target/release/passlock ]; then
           echo "Rust binary compiled: ./target/release/passlock"
+          file ./target/release/passlock
         else
           echo "Rust binary not found"
           exit 1
@@ -67,6 +77,8 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Run Rust tests
+      env:
+        PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
       run: cargo test --verbose
 
   clippy:
@@ -84,6 +96,8 @@ jobs:
         components: clippy
 
     - name: Run Clippy
+      env:
+        PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
       run: cargo clippy -- -D warnings
 
   formatting:

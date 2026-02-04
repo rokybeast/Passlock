@@ -17,12 +17,16 @@ jobs:
     - name: Install all dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential golang-go libsodium-dev
+        sudo apt-get install -y build-essential golang-go libsodium-dev libsodium23 pkg-config
 
-    - name: Build everything
+    - name: Build everything with Makefile
+      env:
+        PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
       run: make build
 
     - name: Run all tests
+      env:
+        PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
       run: make test
 
     - name: Verify all components
