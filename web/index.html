@@ -606,6 +606,120 @@
             border-radius: 8px;
             border-left: 4px solid #4ade80;
         }
+        
+        /* History Section */
+        .history-toggle {
+            margin-top: 15px;
+            padding: 8px 12px;
+            background: rgba(30, 41, 59, 0.3);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 6px;
+            color: #3b82f6;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+        }
+        
+        .history-toggle:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: #3b82f6;
+        }
+        
+        .history-section {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(30, 41, 59, 0.2);
+            border-radius: 8px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        
+        .history-title {
+            color: #3b82f6;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 6px;
+            border: 1px solid rgba(74, 222, 128, 0.1);
+        }
+        
+        .history-password {
+            color: #10b981;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .history-password:hover {
+            color: #4ade80;
+            text-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+        }
+        
+        .history-date {
+            color: #64748b;
+            font-size: 11px;
+        }
+        
+        /* Edit button */
+        button.ed {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+        
+        button.ed:hover {
+            box-shadow: 0 5px 25px rgba(59, 130, 246, 0.4);
+        }
+        
+        /* Info pills container */
+        .info-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0 15px 0;
+        }
+        
+        .info-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        
+        .info-pill.history {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: rgba(139, 92, 246, 0.3);
+            color: #a78bfa;
+        }
+        
+        .info-pill.modified {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+            margin-left: 4px;
+        }
     </style>
 </head>
 <body>
@@ -712,6 +826,40 @@
         </div>
     </div>
     
+    <div id="em" class="md hid" onclick="if(event.target===this)hd('em')">
+        <div class="mb">
+            <div class="mh">[ Edit Entry ]</div>
+            <input type="hidden" id="edit-id">
+            <input type="text" id="edit-name" placeholder="Service name (e.g., GitHub)">
+            <input type="text" id="edit-user" placeholder="Username / Email">
+            <input type="text" id="edit-pass" placeholder="Password" oninput="chkStr('edit-pass','edit-str')">
+            <div id="edit-str" class="strength-meter hid">
+                <div class="strength-bar">
+                    <div class="strength-fill"></div>
+                </div>
+                <div class="strength-text">
+                    <span class="strength-label"></span>
+                    <span class="strength-percent"></span>
+                </div>
+                <div class="strength-feedback"></div>
+            </div>
+            <input type="text" id="edit-url" placeholder="URL (optional)">
+            <input type="text" id="edit-tags" placeholder="Tags (comma separated, optional)">
+            <textarea id="edit-notes" placeholder="Additional notes (optional)" rows="3"></textarea>
+            
+            <div id="edit-history-section" class="history-section hid">
+                <div class="history-title">Password History (Oldest First)</div>
+                <div id="edit-history-list" class="history-list">
+                    <!-- History items will be inserted here -->
+                </div>
+            </div>
+            
+            <button onclick="updateEntry()">[ Update Entry ]</button>
+            <button onclick="hd('em')" class="sc">[ X Cancel ]</button>
+            <div id="edit-msg"></div>
+        </div>
+    </div>
+    
     <script>
         const canvas=document.getElementById('matrix');
         const ctx=canvas.getContext('2d');
@@ -741,7 +889,7 @@
             canvas.height=window.innerHeight;
         });
         
-        let p='',vt=[],currentTag='';
+        let p='',vt=[],currentTag='',currentEntry=null;
         
         async function chkStr(inputId, meterId){
             const input=document.getElementById(inputId);
@@ -755,7 +903,7 @@
             
             meter.classList.remove('hid');
             
-            const d=await ap('strength',{pwd});
+            const d=await ap('strength',{password:pwd});
             if(d.ok){
                 const data=d.data;
                 const fill=meter.querySelector('.strength-fill');
@@ -889,11 +1037,39 @@
             }
             let h='';
             e.forEach(x=>{
-                h+='<div class="en"><div class="et"><div class="nm">[KEY] '+x.n+'</div><div class="bt"><button onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">Copy</button><button onclick="dl(\''+x.id+'\')" class="dg">Delete</button></div></div>';
+                h+='<div class="en"><div class="et"><div class="nm">[KEY] '+x.n+'</div><div class="bt"><button onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">Copy</button><button onclick="editEntry(\''+x.id+'\')" class="ed">Edit</button><button onclick="dl(\''+x.id+'\')" class="dg">Delete</button></div></div>';
+                
+                // Info pills for history and last modified with container
+                h+='<div class="info-pills">';
+                if(x.history&&x.history.length>0){
+                    h+='<span class="info-pill history">History: '+x.history.length+'</span>';
+                }
+                if(x.last_modified){
+                    const date=new Date(x.last_modified*1000).toLocaleDateString();
+                    h+='<span class="info-pill modified">Modified: '+date+'</span>';
+                }
+                h+='</div>';
+                
                 h+='<div class="fd"><span class="lb">User:</span><span class="vl" onclick="cp(\''+x.u.replace(/'/g,"\\'")+'\')">'+x.u+'</span></div>';
                 h+='<div class="fd"><span class="lb">Pass:</span><span class="vl" onclick="cp(\''+x.p.replace(/'/g,"\\'")+'\')">'+x.p+'</span></div>';
                 if(x.url)h+='<div class="fd"><span class="lb">URL:</span><span class="vl">'+x.url+'</span></div>';
                 if(x.nt)h+='<div class="fd"><span class="lb">Notes:</span><span class="vl">'+x.nt+'</span></div>';
+                
+                if(x.history&&x.history.length>0){
+                    h+='<div class="history-toggle" onclick="toggleHistory(\''+x.id+'\')">▼ Show Password History ('+x.history.length+')</div>';
+                    h+='<div id="history-'+x.id+'" class="history-section hid">';
+                    h+='<div class="history-title">Password History (Oldest First)</div>';
+                    h+='<div class="history-list">';
+                    x.history.forEach((hist,idx)=>{
+                        const date=new Date(hist.changed_at*1000).toLocaleString();
+                        h+='<div class="history-item">';
+                        h+='<span class="history-password" onclick="cp(\''+hist.password.replace(/'/g,"\\'")+'\')">'+hist.password+'</span>';
+                        h+='<span class="history-date">'+date+'</span>';
+                        h+='</div>';
+                    });
+                    h+='</div></div>';
+                }
+                
                 if(x.tags&&x.tags.length>0){
                     h+='<div class="entry-tags">';
                     x.tags.forEach(tag=>{
@@ -904,6 +1080,18 @@
                 h+='</div>';
             });
             c.innerHTML=h;
+        }
+        
+        function toggleHistory(id){
+            const el=document.getElementById('history-'+id);
+            const toggle=el.previousElementSibling;
+            if(el.classList.contains('hid')){
+                el.classList.remove('hid');
+                toggle.innerHTML='▲ Hide Password History';
+            }else{
+                el.classList.add('hid');
+                toggle.innerHTML='▼ Show Password History';
+            }
         }
         
         async function loadTags(){
@@ -928,7 +1116,6 @@
                 });
                 tagsContainer.innerHTML=html;
                 
-                // Update filter info
                 const filterInfo=document.getElementById('filter-info');
                 if(currentTag){
                     filterInfo.classList.remove('hid');
@@ -990,7 +1177,6 @@
                 return;
             }
             
-            // Parse tags
             let tags=[];
             if(tg){
                 tags=tg.split(',').map(t=>t.trim()).filter(t=>t.length>0);
@@ -1008,6 +1194,71 @@
                 document.getElementById('ur').value='';
                 document.getElementById('tg').value='';
                 document.getElementById('nt').value='';
+            }
+        }
+        
+        function editEntry(id){
+            const entry=vt.find(e=>e.id===id);
+            if(!entry)return;
+            
+            currentEntry=entry;
+            document.getElementById('edit-id').value=entry.id;
+            document.getElementById('edit-name').value=entry.n;
+            document.getElementById('edit-user').value=entry.u;
+            document.getElementById('edit-pass').value=entry.p;
+            document.getElementById('edit-url').value=entry.url||'';
+            document.getElementById('edit-tags').value=entry.tags?entry.tags.join(', '):'';
+            document.getElementById('edit-notes').value=entry.nt||'';
+            
+            const historySection=document.getElementById('edit-history-section');
+            const historyList=document.getElementById('edit-history-list');
+            
+            if(entry.history&&entry.history.length>0){
+                historySection.classList.remove('hid');
+                let historyHtml='';
+                entry.history.forEach(hist=>{
+                    const date=new Date(hist.changed_at*1000).toLocaleString();
+                    historyHtml+=`<div class="history-item">
+                        <span class="history-password" onclick="cp('${hist.password.replace(/'/g,"\\'")}')">${hist.password}</span>
+                        <span class="history-date">${date}</span>
+                    </div>`;
+                });
+                historyList.innerHTML=historyHtml;
+            }else{
+                historySection.classList.add('hid');
+            }
+            
+            sh('em');
+            chkStr('edit-pass','edit-str');
+        }
+        
+        async function updateEntry(){
+            const id=document.getElementById('edit-id').value;
+            const n=document.getElementById('edit-name').value.trim();
+            const u=document.getElementById('edit-user').value.trim();
+            const ps=document.getElementById('edit-pass').value.trim();
+            const ur=document.getElementById('edit-url').value.trim();
+            const tg=document.getElementById('edit-tags').value.trim();
+            const nt=document.getElementById('edit-notes').value.trim();
+            
+            if(!n||!u||!ps){
+                sm('edit-msg','Name, username, and password required !','er');
+                return;
+            }
+            
+            let tags=[];
+            if(tg){
+                tags=tg.split(',').map(t=>t.trim()).filter(t=>t.length>0);
+            }
+            
+            const d=await ap('edit',{id:id,name:n,user:u,pass:ps,url:ur,note:nt,tags:tags});
+            if(d.ok){
+                ld();
+                loadTags();
+                hd('em');
+                sm('ms','[+] Entry updated successfully.','ok');
+            }else{
+                sm('edit-msg','! '+d.msg,'er');
             }
         }
         
@@ -1060,6 +1311,7 @@
             p='';
             vt=[];
             currentTag='';
+            currentEntry=null;
             document.getElementById('lg').classList.remove('hid');
             document.getElementById('ap').classList.add('hid');
             document.getElementById('pw').value='';
