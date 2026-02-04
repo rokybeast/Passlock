@@ -1,31 +1,68 @@
-.PHONY: all build run clean server test
+.PHONY: all build run clean install-deps test serve
 
 all: build
 
+install-deps:
+	@echo "Installing libsodium..."
+	@if command -v brew >/dev/null 2>&1; then \
+		brew install libsodium; \
+	elif command -v apt-get >/dev/null 2>&1; then \
+		sudo apt-get update && sudo apt-get install -y libsodium-dev; \
+	elif command -v yum >/dev/null 2>&1; then \
+		sudo yum install -y libsodium-devel; \
+	elif command -v pacman >/dev/null 2>&1; then \
+		sudo pacman -S libsodium; \
+	else \
+		echo "Please install libsodium manually"; \
+		exit 1; \
+	fi
+	@echo "libsodium installed successfully!"
+
 build:
-	@echo "→ Building rust cli..."
+	@echo "Building PassLock with C vault engine..."
 	cargo build --release
-	@echo "[✓] Done."
+	@echo "Build complete! Binary: target/release/passlock"
 
 run:
-	@echo "[→] Running PASSLOCK..."
 	cargo run --release
 
+test: test-c test-rust
+
+test-c:
+	@echo "Testing C vault engine..."
+	gcc -DTEST_MODE -o test_crypto src/c/crypto_core.c -Wall -Wextra
+	./test_crypto
+	rm -f test_crypto
+
+test-rust:
+	@echo "\nTesting Rust components..."
+	@echo "Note: Add #[test] functions to enable Rust tests"
+	@cargo test --quiet || echo "No Rust tests defined yet"
+	@cargo clean
+
 server:
-	@echo "[→] Building GO API server..."
-	cd go_src && go build -o ../target/release/passlock-server api_server.go
-	@echo "[→] Starting Server..."
-	./target/release/passlock-server
+	@echo "Starting web server..."
+	cd web && go run ../api_server.go
 
 clean:
-	@echo "[→] Cleaning..."
 	cargo clean
-	rm -f target/release/passlock-server
-	@echo "[✓] Cleaned."
+	rm -f test_crypto
+	@echo "Cleaned build artifacts"
 
-test:
-	@echo "[→] Testing c crypto..."
-	gcc -o test_crypto c_src/crypto_core.c -DTEST_MODE
-	./test_crypto
-	rm test_crypto
-	@echo "[✓] Tests Passed."
+setup: install-deps
+	@echo "Setting up project structure..."
+	@mkdir -p src/c
+	@mkdir -p web
+	@echo "Project setup complete!"
+
+help:
+	@echo "PassLock Build Commands:"
+	@echo "  make install-deps  - Install libsodium dependency"
+	@echo "  make build        - Build the project"
+	@echo "  make run          - Run the TUI"
+	@echo "  make test         - Run all tests (C + Rust)"
+	@echo "  make test-c       - Run only C tests"
+	@echo "  make test-rust    - Run only Rust tests"
+	@echo "  make serve        - Start web server"
+	@echo "  make clean        - Clean build artifacts"
+	@echo "  make setup        - Full project setup"

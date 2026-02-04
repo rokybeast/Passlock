@@ -1,63 +1,59 @@
-use crate::crypto::enc;
+use crate::crypto;
 use crate::models::Vault;
 use std::fs;
 use std::path::PathBuf;
 
-pub fn gtv_path() -> PathBuf {
-    let mut p = dirs::home_dir().expect("cant find home");
-    p.push(".passlock.vault");
-    p
+fn vt_p() -> PathBuf {
+    let home = dirs::home_dir().expect("no home");
+    home.join(".passlock.vault")
 }
 
-pub fn gtp_path() -> PathBuf {
-    let mut p = dirs::home_dir().expect("cant find home");
-    p.push(".passlock.temp");
-    p
+fn tmp_p() -> PathBuf {
+    let home = dirs::home_dir().expect("no home");
+    home.join(".passlock.temp")
 }
 
 pub fn svv(v: &Vault, pwd: &str) -> Result<(), String> {
     let j = serde_json::to_string(v).map_err(|e| e.to_string())?;
-    let enc_d = enc(&j, pwd, &v.s)?;
+    let j_bytes = j.as_bytes();
 
-    let final_d = format!("{}:{}", v.s, enc_d);
+    let enc_d = crypto::enc(j_bytes, pwd, &v.s)?;
 
-    let p = gtv_path();
-    fs::write(p, final_d).map_err(|e| e.to_string())?;
+    let salt_bytes = hex::decode(&v.s).map_err(|_| "Invalid salt")?;
+    let mut final_data = Vec::new();
+    final_data.extend_from_slice(&salt_bytes);
+    final_data.extend_from_slice(&enc_d);
 
-    let temp_p = gtp_path();
-    let tempd = serde_json::to_string(v).map_err(|e| e.to_string())?;
-    fs::write(temp_p, tempd).map_err(|e| e.to_string())?;
+    fs::write(vt_p(), final_data).map_err(|e| e.to_string())?;
+
+    let tmp_j = serde_json::to_string(v).map_err(|e| e.to_string())?;
+    fs::write(tmp_p(), tmp_j).map_err(|e| e.to_string())?;
 
     Ok(())
 }
 
 pub fn ld_vt(pwd: &str) -> Result<Vault, String> {
-    let p = gtv_path();
+    let data = fs::read(vt_p()).map_err(|_| "vault not found")?;
 
-    if !p.exists() {
-        return Err("no vault found".into());
+    if data.len() < 16 {
+        return Err("corrupt vault".to_string());
     }
 
-    let data = fs::read_to_string(p).map_err(|e| e.to_string())?;
+    let salt_bytes = &data[0..16];
+    let enc_data = &data[16..];
+    let salt = hex::encode(salt_bytes);
 
-    let parts: Vec<&str> = data.splitn(2, ':').collect();
-    if parts.len() != 2 {
-        return Err("invalid vault format".into());
-    }
+    let dec_data = crypto::dec(enc_data, pwd, &salt)?;
+    let dec_str = String::from_utf8(dec_data).map_err(|_| "invalid data")?;
 
-    let salt = parts[0];
-    let enc_d = parts[1];
+    let v: Vault = serde_json::from_str(&dec_str).map_err(|e| e.to_string())?;
 
-    let dec_data = crate::crypto::dec(enc_d, pwd, salt)?;
-    let v: Vault = serde_json::from_str(&dec_data).map_err(|e| e.to_string())?;
-
-    let temp_p = gtp_path();
-    let tempd = serde_json::to_string(&v).map_err(|e| e.to_string())?;
-    fs::write(temp_p, tempd).ok();
+    let tmp_j = serde_json::to_string(&v).map_err(|e| e.to_string())?;
+    fs::write(tmp_p(), tmp_j).map_err(|e| e.to_string())?;
 
     Ok(v)
 }
 
 pub fn vt_exi() -> bool {
-    gtv_path().exists()
+    vt_p().exists()
 }

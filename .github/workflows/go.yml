@@ -19,32 +19,34 @@ jobs:
       with:
         go-version: 'stable'
 
-    - name: Build Go API
-      working-directory: ./go_src
+    - name: Build Go API server
       run: |
-        go build -o ../target/passlock-api api_server.go
-        echo "Go API compiled successfully"
-        
-        # Quick test that it runs
-        timeout 2 ../target/passlock-api --help 2>&1 || echo "Go binary exists (may not have --help flag)"
+        echo "Building Go API server..."
+        go build -o passlock-api api_server.go
+        echo "Go API server compiled: ./passlock-api"
 
     - name: Check Go code quality
-      working-directory: ./go_src
       continue-on-error: true
       run: |
         echo "Checking Go code..."
-        go vet ./...
-        go fmt -d .
-        
-    - name: Go verification
+        go vet api_server.go
+        gofmt -d api_server.go || echo "Formatting issues (run 'gofmt -w api_server.go' to fix)"
+
+    - name: Verify web assets
       run: |
-        echo "Go verification:"
-        if [ -f ./target/passlock-api ]; then
-          echo "Go API binary exists at ./target/passlock-api"
-          file ./target/passlock-api
+        echo "Checking web assets..."
+        if [ -d web ] && [ -f web/index.html ]; then
+          echo "Web directory exists with index.html"
+          echo "Web files:"
+          ls -la web/
         else
-          echo "Go API binary not found"
-          exit 1
+          echo "Web directory or index.html not found"
         fi
+
+    - name: Test API server startup
+      continue-on-error: true
+      run: |
+        echo "Testing API server startup..."
+        timeout 3 ./passlock-api --help 2>&1 | head -5 || echo "API server compiled (may not have --help flag)"
         
-        echo "Go CI completed successfully!"
+        echo "Go CI completed!"

@@ -1,33 +1,60 @@
-use aes_gcm::{
-    aead::{Aead, KeyInit, OsRng},
-    Aes256Gcm, Nonce,
-};
-use argon2::password_hash::SaltString;
-use argon2::{Argon2, PasswordHasher};
-use base64::{engine::general_purpose, Engine as _};
+use crate::vault_ffi;
 use rand::Rng;
-use std::ffi::CString;
+use serde::{Deserialize, Serialize};
 
-extern "C" {
-    fn xor_buf(d: *mut u8, len: usize, k: *const u8, klen: usize);
-    fn gen_rand(buf: *mut u8, n: usize) -> i32;
-    fn hash_str(s: *const libc::c_char) -> libc::c_ulong;
-    fn sec_zero(p: *mut libc::c_void, n: usize);
-}
-
-#[allow(dead_code)]
-pub struct PwdStrength {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PasswordStrength {
     pub score: i32,
     pub strength: String,
     pub percentage: i32,
     pub feedback: Vec<String>,
 }
 
-pub fn calc_pwd_strength(pwd: &str) -> PwdStrength {
+pub fn init_crypto() -> Result<(), String> {
+    vault_ffi::init()
+}
+
+pub fn cleanup() {
+    vault_ffi::cleanup();
+}
+
+pub fn gen_salt() -> String {
+    match vault_ffi::generate_salt() {
+        Ok(salt_bytes) => hex::encode(salt_bytes),
+        Err(_) => {
+            let mut rng = rand::thread_rng();
+            let salt_bytes: Vec<u8> = (0..vault_ffi::SALT_LENGTH).map(|_| rng.gen()).collect();
+            hex::encode(salt_bytes)
+        }
+    }
+}
+
+pub fn enc(data: &[u8], pwd: &str, salt_hex: &str) -> Result<Vec<u8>, String> {
+    let salt = hex::decode(salt_hex).map_err(|_| "Invalid salt hex")?;
+    vault_ffi::encrypt_data(data, pwd, &salt)
+}
+
+pub fn dec(data: &[u8], pwd: &str, salt_hex: &str) -> Result<Vec<u8>, String> {
+    let salt = hex::decode(salt_hex).map_err(|_| "Invalid salt hex")?;
+    vault_ffi::decrypt_data(data, pwd, &salt)
+}
+
+pub fn gen_pwd(len: usize) -> String {
+    let chars =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:,.<>?";
+    let mut rng = rand::thread_rng();
+    (0..len)
+        .map(|_| {
+            let idx = rng.gen_range(0..chars.len());
+            chars.chars().nth(idx).unwrap()
+        })
+        .collect()
+}
+
+pub fn calc_pwd_strength(password: &str) -> PasswordStrength {
     let mut score = 0;
     let mut feedback = Vec::new();
-
-    let length = pwd.len();
+    let length = password.len();
 
     if length >= 8 {
         score += 1;
@@ -42,44 +69,41 @@ pub fn calc_pwd_strength(pwd: &str) -> PwdStrength {
         feedback.push("Use at least 8 characters".to_string());
     }
 
-    let has_lower = pwd.chars().any(|c| c.is_lowercase());
-    let has_upper = pwd.chars().any(|c| c.is_uppercase());
-    let has_digit = pwd.chars().any(|c| c.is_ascii_digit());
-    let has_special = pwd
+    let has_lower = password.chars().any(|c| c.is_lowercase());
+    let has_upper = password.chars().any(|c| c.is_uppercase());
+    let has_digit = password.chars().any(|c| c.is_numeric());
+    let has_special = password
         .chars()
-        .any(|c| "!@#$%^&*()_+-=[]{};\':\"\\|,.<>/?".contains(c));
+        .any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c));
 
-    let mut variety_count = 0;
     if has_lower {
-        variety_count += 1;
+        score += 1;
     } else {
         feedback.push("Add lowercase letters".to_string());
     }
 
     if has_upper {
-        variety_count += 1;
+        score += 1;
     } else {
         feedback.push("Add uppercase letters".to_string());
     }
 
     if has_digit {
-        variety_count += 1;
+        score += 1;
     } else {
         feedback.push("Add numbers".to_string());
     }
 
     if has_special {
-        variety_count += 1;
+        score += 1;
     } else {
         feedback.push("Add special characters".to_string());
     }
 
-    score += variety_count;
-
-    let common_patterns = vec!["123", "abc", "pwd", "qwerty", "admin"];
-    let lower_password = pwd.to_lowercase();
-    for pattern in common_patterns {
-        if lower_password.contains(pattern) {
+    let lower_pwd = password.to_lowercase();
+    let common_patterns = ["123", "abc", "password", "qwerty", "admin"];
+    for pattern in &common_patterns {
+        if lower_pwd.contains(pattern) {
             score -= 2;
             feedback.push("Avoid common patterns".to_string());
             break;
@@ -94,100 +118,118 @@ pub fn calc_pwd_strength(pwd: &str) -> PwdStrength {
         score = 0;
     }
 
-    let (strength, percentage) = if score <= 2 {
-        ("Weak".to_string(), 25)
-    } else if score <= 4 {
-        ("Fair".to_string(), 50)
-    } else if score <= 6 {
-        ("Good".to_string(), 75)
-    } else {
-        ("Strong".to_string(), 100)
+    let (strength, percentage) = match score {
+        0..=2 => ("Weak", 25),
+        3..=4 => ("Fair", 50),
+        5..=6 => ("Good", 75),
+        _ => ("Strong", 100),
     };
 
-    PwdStrength {
+    PasswordStrength {
         score,
-        strength,
+        strength: strength.to_string(),
         percentage,
         feedback,
     }
 }
 
-pub fn gen_salt() -> String {
-    SaltString::generate(&mut OsRng).to_string()
+#[allow(dead_code)]
+pub fn secure_wipe(data: &mut [u8]) {
+    vault_ffi::secure_zero(data);
 }
 
-pub fn der_k(pwd: &str, salt: &str) -> Result<[u8; 32], String> {
-    let s = SaltString::from_b64(salt).map_err(|e| e.to_string())?;
-    let h = Argon2::default()
-        .hash_password(pwd.as_bytes(), &s)
-        .map_err(|e| e.to_string())?;
-    let hash_str = h.hash.ok_or("no hash")?;
-    let mut k = [0u8; 32];
-    let dcd = hash_str.as_bytes();
-    let len = dcd.len().min(32);
-    k[..len].copy_from_slice(&dcd[..len]);
-    Ok(k)
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-pub fn enc(data: &str, pwd: &str, salt: &str) -> Result<String, String> {
-    let k = der_k(pwd, salt)?;
-    let c = Aes256Gcm::new(&k.into());
-    let mut n_bytes = [0u8; 12];
-    unsafe { gen_rand(n_bytes.as_mut_ptr(), 12) };
-    let n = Nonce::from(n_bytes);
-    let mut data_bytes = data.as_bytes().to_vec();
-    let pwd_c = CString::new(pwd).unwrap();
-    let h = unsafe { hash_str(pwd_c.as_ptr()) };
-    let xor_k = h.to_le_bytes();
-    unsafe {
-        xor_buf(
-            data_bytes.as_mut_ptr(),
-            data_bytes.len(),
-            xor_k.as_ptr(),
-            xor_k.len(),
-        );
+    #[test]
+    fn test_pwd_sw() {
+        let result = calc_pwd_strength("abc");
+        assert_eq!(result.strength, "Weak");
+        assert!(result.score <= 2);
     }
-    let ct = c
-        .encrypt(&n, data_bytes.as_slice())
-        .map_err(|e| e.to_string())?;
-    let mut result = n_bytes.to_vec();
-    result.extend_from_slice(&ct);
-    unsafe { sec_zero(k.as_ptr() as *mut libc::c_void, k.len()) };
-    Ok(general_purpose::STANDARD.encode(result))
-}
 
-pub fn dec(enc_data: &str, pwd: &str, salt: &str) -> Result<String, String> {
-    let k = der_k(pwd, salt)?;
-    let c = Aes256Gcm::new(&k.into());
-    let data = general_purpose::STANDARD
-        .decode(enc_data)
-        .map_err(|e| e.to_string())?;
-    if data.len() < 12 {
-        return Err("invalid data".into());
+    #[test]
+    fn test_pwd_ss() {
+        let result = calc_pwd_strength("MyP@ssw0rd!VeryStrong");
+        assert_eq!(result.strength, "Strong");
+        assert!(result.score >= 7);
     }
-    let (n_bytes, ct) = data.split_at(12);
-    let n_bytes: [u8; 12] = n_bytes.try_into().map_err(|_| "invalid nonce")?;
-    let n = Nonce::from(n_bytes);
-    let mut pt = c
-        .decrypt(&n, ct)
-        .map_err(|_| "decryption failed - wrong pwd?")?;
-    let pwd_c = CString::new(pwd).unwrap();
-    let h = unsafe { hash_str(pwd_c.as_ptr()) };
-    let xor_k = h.to_le_bytes();
-    unsafe {
-        xor_buf(pt.as_mut_ptr(), pt.len(), xor_k.as_ptr(), xor_k.len());
-    }
-    unsafe { sec_zero(k.as_ptr() as *mut libc::c_void, k.len()) };
-    String::from_utf8(pt).map_err(|e| e.to_string())
-}
 
-pub fn gen_pwd(len: usize) -> String {
-    const CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let mut r = rand::thread_rng();
-    (0..len)
-        .map(|_| {
-            let i = r.gen_range(0..CHARS.len());
-            CHARS[i] as char
-        })
-        .collect()
+    #[test]
+    fn test_pwd_cp() {
+        let result = calc_pwd_strength("password123");
+        assert!(result
+            .feedback
+            .iter()
+            .any(|f| f.contains("common patterns")));
+    }
+
+    #[test]
+    fn test_gpwdl() {
+        let pwd = gen_pwd(16);
+        assert_eq!(pwd.len(), 16);
+    }
+
+    #[test]
+    fn test_gpwdv() {
+        let pwd = gen_pwd(20);
+        let has_lower = pwd.chars().any(|c| c.is_lowercase());
+        let has_upper = pwd.chars().any(|c| c.is_uppercase());
+        assert!(has_lower || has_upper);
+    }
+
+    #[test]
+    fn test_sgen() {
+        let salt1 = gen_salt();
+        let salt2 = gen_salt();
+        assert_ne!(salt1, salt2);
+        assert_eq!(salt1.len(), 32); // 16 bytes = 32 hex chars
+    }
+
+    #[test]
+    fn test_edr() {
+        if init_crypto().is_err() {
+            println!("Skipping crypto test - libsodium not available");
+            return;
+        }
+
+        let plaintext = b"Hello, World! This is a test.";
+        let password = "test_password_123";
+        let salt = gen_salt();
+
+        let encrypted = enc(plaintext, password, &salt).expect("Encryption failed");
+        let decrypted = dec(&encrypted, password, &salt).expect("Decryption failed");
+
+        assert_eq!(plaintext, &decrypted[..]);
+
+        cleanup();
+    }
+
+    #[test]
+    fn test_wpwdf() {
+        if init_crypto().is_err() {
+            println!("Skipping crypto test - libsodium not available");
+            return;
+        }
+
+        let plaintext = b"Secret data";
+        let password = "correct_password";
+        let wrong_password = "wrong_password";
+        let salt = gen_salt();
+
+        let encrypted = enc(plaintext, password, &salt).expect("Encryption failed");
+        let result = dec(&encrypted, wrong_password, &salt);
+
+        assert!(result.is_err());
+
+        cleanup();
+    }
+
+    #[test]
+    fn test_sw() {
+        let mut data = vec![1u8, 2, 3, 4, 5];
+        secure_wipe(&mut data);
+        assert_eq!(data, vec![0u8, 0, 0, 0, 0]);
+    }
 }

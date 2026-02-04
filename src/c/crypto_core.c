@@ -71,7 +71,7 @@ void tgr() {
     
     if (gen_rand(buf, sizeof(buf)) == 0) {
         int all_zero = 1;
-        for (int i = 0; i < sizeof(buf); i++) {
+        for (size_t i = 0; i < sizeof(buf); i++) {
             if (buf[i] != 0) {
                 all_zero = 0;
                 break;
