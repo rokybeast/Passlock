@@ -1,5 +1,5 @@
 #include "vault_engine.h"
-#include "sodium_wrapper.h"
+#include <sodium.h>
 #include <string.h>
 #include <stdlib.h>
 
