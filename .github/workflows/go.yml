@@ -1,0 +1,50 @@
+name: Go CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  go-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 'stable'
+
+    - name: Build Go API
+      working-directory: ./go_src
+      run: |
+        go build -o ../target/passlock-api api_server.go
+        echo "Go API compiled successfully"
+        
+        # Quick test that it runs
+        timeout 2 ../target/passlock-api --help 2>&1 || echo "Go binary exists (may not have --help flag)"
+
+    - name: Check Go code quality
+      working-directory: ./go_src
+      continue-on-error: true
+      run: |
+        echo "Checking Go code..."
+        go vet ./...
+        go fmt -d .
+        
+    - name: Go verification
+      run: |
+        echo "Go verification:"
+        if [ -f ./target/passlock-api ]; then
+          echo "Go API binary exists at ./target/passlock-api"
+          file ./target/passlock-api
+        else
+          echo "Go API binary not found"
+          exit 1
+        fi
+        
+        echo "Go CI completed successfully!"

@@ -1,4 +1,4 @@
-name: Passlock CI
+name: Rust CI
 
 on:
   push:
@@ -12,23 +12,21 @@ env:
 jobs:
   setup:
     runs-on: ubuntu-latest
-    continue-on-error: true
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install Rust with tools
+    - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
         components: clippy, rustfmt
 
-    - name: Install system dependencies
+    - name: Install C compiler (for FFI)
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential
-        sudo apt-get install -y golang-go
 
     - name: Cache Rust dependencies
       uses: actions/cache@v4
@@ -40,34 +38,30 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
           ${{ runner.os }}-cargo-
-      
-    - name: Setup complete
-      run: echo "Environment setup completed"
 
-  build:
+  rust-build:
     runs-on: ubuntu-latest
     needs: setup
-    continue-on-error: true
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Build project
-      run: make build
+    - name: Build Rust project
+      run: cargo build --verbose
       
     - name: Build success check
       run: |
         if [ -f ./target/debug/passlock ]; then
-          echo "Build successful - binary exists"
+          echo "Rust binary compiled successfully"
         else
-          echo "Build may have issues - binary not found"
+          echo "Rust binary not found"
+          exit 1
         fi
 
   rust-tests:
     runs-on: ubuntu-latest
     needs: setup
-    continue-on-error: true
     
     steps:
     - name: Checkout code
@@ -75,33 +69,6 @@ jobs:
 
     - name: Run Rust tests
       run: cargo test --verbose
-
-  c-tests:
-    runs-on: ubuntu-latest
-    needs: setup
-    continue-on-error: true
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Run C tests
-      run: make test
-
-  go-build:
-    runs-on: ubuntu-latest
-    needs: setup
-    continue-on-error: true
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Check Go API compilation
-      working-directory: ./go_src
-      run: |
-        go build -o ../target/passlock-api api_server.go
-        echo "Go API compiled successfully"
 
   formatting:
     runs-on: ubuntu-latest
@@ -112,21 +79,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Check formatting (limited output)
+    - name: Check formatting
       run: |
-        echo "Checking code formatting..."
-        echo ""
-        echo "Note: Formatting check will not fail the build."
-        echo "If you want to fix formatting, run 'cargo fmt' locally."
-        echo ""
-        
-        if cargo fmt -- --check 2>&1 | head -10; then
-          echo ""
+        if cargo fmt -- --check; then
           echo "Code is properly formatted!"
         else
-          echo ""
-          echo "Formatting issues found (showing first 10 lines)"
-          echo "Run 'cargo fmt' locally to fix automatically"
+          echo "Formatting issues found"
+          echo "Run 'cargo fmt' locally to fix"
         fi
 
   clippy:
@@ -139,43 +98,26 @@ jobs:
 
     - name: Run Clippy
       run: cargo clippy -- -D warnings
-      
-    - name: Clippy passed
-      run: echo "All Clippy checks passed!"
 
   verification:
     runs-on: ubuntu-latest
-    needs: [build, rust-tests, c-tests, go-build, formatting, clippy]
-    continue-on-error: true
+    needs: [rust-build, rust-tests, formatting, clippy]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Final verification
+    - name: Final Rust verification
       run: |
-        echo "Final verification summary:"
-        echo ""
+        echo "Rust verification:"
         
-        if [ -f ./target/debug/passlock ]; then
-          echo "Binary exists: ./target/debug/passlock"
-          
-          if timeout 2 ./target/debug/passlock --help 2>&1 | head -2; then
-            echo "Help command works"
-          elif timeout 2 ./target/debug/passlock -h 2>&1 | head -2; then
-            echo "Help command works"
-          else
-            echo "Binary exists but help commands didn't work as expected"
-          fi
+        if ./target/debug/passlock --help 2>&1 | head -2; then
+          echo "Rust TUI works correctly"
+        elif ./target/debug/passlock -h 2>&1 | head -2; then
+          echo "Rust TUI works correctly"
         else
-          echo "Binary not found!"
+          echo "Rust TUI doesn't work"
+          exit 1
         fi
         
-        if [ -f ./target/passlock-api ]; then
-          echo "Go API binary exists"
-        else
-          echo "Go API binary not found"
-        fi
-        
-        echo ""
-        echo "CI process completed!"
+        echo "Rust CI completed successfully!"

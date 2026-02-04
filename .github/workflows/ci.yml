@@ -1,0 +1,17 @@
+name: CI Status
+
+on:
+  workflow_run:
+    workflows: ["Rust CI", "C CI", "Go CI"]
+    types:
+      - completed
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion != 'skipped' }}
+    steps:
+      - name: Check overall status
+        run: |
+          echo "All CI workflows completed!"
+          echo "See individual workflow runs for details."
