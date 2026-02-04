@@ -42,7 +42,7 @@ jobs:
           ${{ runner.os }}-cargo-
       
     - name: Setup complete
-      run: echo "✅ Environment setup completed"
+      run: echo "Environment setup completed"
 
   build:
     runs-on: ubuntu-latest
@@ -59,9 +59,9 @@ jobs:
     - name: Build success check
       run: |
         if [ -f ./target/debug/passlock ]; then
-          echo "✅ Build successful - binary exists"
+          echo "Build successful - binary exists"
         else
-          echo "⚠️  Build may have issues - binary not found"
+          echo "Build may have issues - binary not found"
         fi
 
   rust-tests:
@@ -101,7 +101,7 @@ jobs:
       working-directory: ./go_src
       run: |
         go build -o ../target/passlock-api api_server.go
-        echo "✅ Go API compiled successfully"
+        echo "Go API compiled successfully"
 
   formatting:
     runs-on: ubuntu-latest
@@ -114,26 +114,24 @@ jobs:
 
     - name: Check formatting (limited output)
       run: |
-        echo "📝 Checking code formatting..."
+        echo "Checking code formatting..."
         echo ""
         echo "Note: Formatting check will not fail the build."
         echo "If you want to fix formatting, run 'cargo fmt' locally."
         echo ""
         
-        # Run format check but limit output
         if cargo fmt -- --check 2>&1 | head -10; then
           echo ""
-          echo "✅ Code is properly formatted!"
+          echo "Code is properly formatted!"
         else
           echo ""
-          echo "⚠️  Formatting issues found (showing first 10 lines)"
-          echo "💡 Run 'cargo fmt' locally to fix automatically"
+          echo "Formatting issues found (showing first 10 lines)"
+          echo "Run 'cargo fmt' locally to fix automatically"
         fi
 
   clippy:
     runs-on: ubuntu-latest
     needs: setup
-    # NO continue-on-error here - Clippy must pass!
     
     steps:
     - name: Checkout code
@@ -143,7 +141,7 @@ jobs:
       run: cargo clippy -- -D warnings
       
     - name: Clippy passed
-      run: echo "🎉 All Clippy checks passed!"
+      run: echo "All Clippy checks passed!"
 
   verification:
     runs-on: ubuntu-latest
@@ -156,30 +154,28 @@ jobs:
 
     - name: Final verification
       run: |
-        echo "📋 Final verification summary:"
+        echo "Final verification summary:"
         echo ""
         
-        # Check binary
         if [ -f ./target/debug/passlock ]; then
-          echo "✅ Binary exists: ./target/debug/passlock"
+          echo "Binary exists: ./target/debug/passlock"
           
           if timeout 2 ./target/debug/passlock --help 2>&1 | head -2; then
-            echo "✅ Help command works"
+            echo "Help command works"
           elif timeout 2 ./target/debug/passlock -h 2>&1 | head -2; then
-            echo "✅ Help command works"
+            echo "Help command works"
           else
-            echo "⚠️  Binary exists but help commands didn't work as expected"
+            echo "Binary exists but help commands didn't work as expected"
           fi
         else
-          echo "❌ Binary not found!"
+          echo "Binary not found!"
         fi
         
-        # Check Go API
         if [ -f ./target/passlock-api ]; then
-          echo "✅ Go API binary exists"
+          echo "Go API binary exists"
         else
-          echo "⚠️  Go API binary not found"
+          echo "Go API binary not found"
         fi
         
         echo ""
-        echo "🏁 CI process completed!"
+        echo "CI process completed!"
