@@ -17,7 +17,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install Rust
+    - name: Install Rust with tools
       uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
@@ -40,16 +40,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
 
-    - name: Auto-format code (optional)
-      continue-on-error: true
-      run: |
-        echo "📝 Formatting Rust code with rustfmt..."
-        cargo fmt
-        
-        # Show what changed
-        git diff --name-only || echo "No changes or not in git repo"
-        echo "✅ Formatting complete (if any changes were made)"
-
     - name: Build project
       run: make build
 
@@ -63,66 +53,47 @@ jobs:
       working-directory: ./go_src
       run: |
         go build -o ../target/passlock-api api_server.go
-        echo "✅ Go API compiled successfully"
+        echo "Go API compiled successfully"
 
-    - name: Linting with Clippy (warning only)
+    - name: Check formatting
+      run: cargo fmt -- --check
+
+    - name: Run Clippy (with remaining 4 known issues)
       continue-on-error: true
       run: |
-        echo "🔍 Running Clippy for code suggestions..."
-        cargo clippy -- -D warnings || echo "⚠️  Clippy found issues (check above)"
-
-    - name: Verify build works
-      run: |
-        echo "🔧 Checking basic functionality..."
+        echo "Running Clippy (4 known issues remaining)..."
+        cargo clippy -- -D warnings 2>&1 | grep -E "(error:|warning:)" || echo "No new issues found!"
         
-        # Check binary exists
+        echo ""
+        echo "Remaining issues to fix:"
+        echo "1. main.rs:55  - Change 'eprintln!(\"Error: {}\", e)' to 'eprintln!(\"Error: {e}\")'"
+        echo "2. main.rs:68  - Change 'eprintln!(\"Error: {}\", e)' to 'eprintln!(\"Error: {e}\")'"
+        echo "3. main.rs:80  - Change 'eprintln!(\"Error running TUI: {}\", e)' to 'eprintln!(\"Error running TUI: {e}\")'"
+        echo "4. ui.rs:749   - Change 'vec![...]' to '[...]' (array syntax)"
+        echo ""
+        echo "Fix these and remove 'continue-on-error: true' above!"
+
+    - name: Verify final build
+      run: |
+        echo "Final verification..."
+        
         if [ -f ./target/debug/passlock ]; then
-          echo "✅ Binary exists: ./target/debug/passlock"
+          echo "Binary exists: ./target/debug/passlock"
           
-          # Try to get version or help
           if ./target/debug/passlock --version 2>/dev/null; then
-            echo "✅ Version check passed"
-          elif ./target/debug/passlock -h 2>/dev/null; then
-            echo "✅ Help command works"
+            echo "Version check passed"
+          elif ./target/debug/passlock -h 2>&1 | head -3; then
+            echo "Help command works"
           else
-            echo "⚠️  Binary exists but --version/-h didn't work"
+            timeout 2 ./target/debug/passlock 2>&1 | head -2 && echo "TUI starts" || echo "Binary exists but startup may have issues"
           fi
         else
-          # Try to find the binary
-          echo "🔍 Looking for binary..."
-          find target -name "passlock" -type f 2>/dev/null | head -5
+          echo "Binary not found!"
+          exit 1
         fi
         
-        echo "🎉 Build verification complete!"
-
-  # Quick lint job (doesn't block main build)
-  lint-only:
-    runs-on: ubuntu-latest
-    continue-on-error: true  # Don't fail the whole workflow
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Install Rust tools
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: stable
-        components: clippy, rustfmt
-    
-    - name: Format check (non-blocking)
-      run: |
-        echo "📝 Checking code formatting..."
-        if cargo fmt -- --check; then
-          echo "✅ Code is properly formatted!"
-        else
-          echo "⚠️  Code formatting issues found"
-          echo "💡 Run 'cargo fmt' locally to fix"
-          # Show what needs to be formatted
-          cargo fmt -- --check 2>&1 | head -20
+        if [ -f ./target/passlock-api ]; then
+          echo "Go API binary exists"
         fi
-    
-    - name: Clippy check (non-blocking)
-      run: |
-        echo "🔍 Running Clippy lint check..."
-        cargo clippy -- -D warnings 2>&1 | tail -20 || echo "⚠️  Clippy found issues"
+        
+        echo "Build completed successfully!"

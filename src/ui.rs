@@ -171,7 +171,7 @@ impl App {
                 self.set_msg("Vault created successfully!", MessageType::Success);
             }
             Err(e) => {
-                self.set_msg(&format!("Failed to create vault: {}", e), MessageType::Error);
+                self.set_msg(&format!("Failed to create vault: {e}"), MessageType::Error);
             }
         }
     }
@@ -218,7 +218,7 @@ impl App {
         if let Some(ref mut vault) = self.vault {
             vault.e.push(entry);
             if let Err(e) = storage::svv(vault, &self.master_pwd) {
-                self.set_msg(&format!("Failed to save: {}", e), MessageType::Error);
+                self.set_msg(&format!("Failed to save: {e}"), MessageType::Error);
             } else {
                 self.set_msg("Password added successfully!", MessageType::Success);
                 self.ca_form();
@@ -258,7 +258,7 @@ impl App {
                 entry.last_modified = now;
                 
                 if let Err(e) = storage::svv(vault, &self.master_pwd) {
-                    self.set_msg(&format!("Failed to save: {}", e), MessageType::Error);
+                    self.set_msg(&format!("Failed to save: {e}"), MessageType::Error);
                 } else {
                     self.set_msg("Entry updated successfully!", MessageType::Success);
                     self.ca_form();
@@ -294,7 +294,7 @@ impl App {
             if index < vault.e.len() {
                 let removed = vault.e.remove(index);
                 if let Err(e) = storage::svv(vault, &self.master_pwd) {
-                    self.set_msg(&format!("Failed to save: {}", e), MessageType::Error);
+                    self.set_msg(&format!("Failed to save: {e}"), MessageType::Error);
                 } else {
                     self.set_msg(&format!("Deleted '{}'", removed.n), MessageType::Success);
                     self.screen = Screen::MainMenu;
@@ -322,7 +322,7 @@ impl App {
                     .filter(|e| {
                         e.n.to_lowercase().contains(&query)
                             || e.u.to_lowercase().contains(&query)
-                            || e.url.as_ref().map_or(false, |u| u.to_lowercase().contains(&query))
+                            || e.url.as_ref().is_some_and(|u| u.to_lowercase().contains(&query))
                             || e.tags.iter().any(|t| t.to_lowercase().contains(&query))
                     })
                     .cloned()
@@ -332,7 +332,7 @@ impl App {
     }
 
     fn gen_pwd(&mut self) {
-        let len = self.input_buffer.parse::<usize>().unwrap_or(16).max(4).min(64);
+        let len = self.input_buffer.parse::<usize>().unwrap_or(16).clamp(4,64);
         self.gen_pwd = crypto::gen_pwd(len);
     }
 
@@ -391,7 +391,6 @@ impl App {
                     .cloned()
                     .collect();
             } else {
-                // Clear filter - show all entries
                 self.entry_disp = vault.e.clone();
             }
         }
@@ -406,20 +405,20 @@ impl App {
         } else if days == 1 {
             "1 day ago".to_string()
         } else if days < 30 {
-            format!("{} days ago", days)
+            format!("{days} days ago")
         } else if days < 365 {
             let months = days / 30;
             if months == 1 {
                 "1 month ago".to_string()
             } else {
-                format!("{} months ago", months)
+                format!("{months} months ago")
             }
         } else {
             let years = days / 365;
             if years == 1 {
                 "1 year ago".to_string()
             } else {
-                format!("{} years ago", years)
+                format!("{years} years ago")
             }
         }
     }
@@ -438,7 +437,7 @@ pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
     execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
     if let Err(err) = res {
-        println!("Error: {:?}", err);
+        println!("Error: {err:?}");
     }
     Ok(())
 }
@@ -668,7 +667,7 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         let disp_count = app.entry_disp.len();
         let total_count = vault.e.len();
         let filter_indicator = if disp_count != total_count {
-            format!(" (Filtered: {})", disp_count)
+            format!(" (Filtered: {disp_count})")
         } else {
             String::new()
         };
@@ -681,9 +680,9 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
                 Span::styled("Vault: ", Style::default().fg(GruvboxColors::gray())),
                 Span::styled("UNLOCKED ", Style::default().fg(GruvboxColors::green()).add_modifier(Modifier::BOLD)),
                 Span::styled("│ ", Style::default().fg(GruvboxColors::gray())),
-                Span::styled(format!("{} passwords{} ", total_count, filter_indicator), Style::default().fg(GruvboxColors::blue())),
+                Span::styled(format!("{total_count} passwords{filter_indicator} "), Style::default().fg(GruvboxColors::blue())),
                 Span::styled("│ ", Style::default().fg(GruvboxColors::gray())),
-                Span::styled(format!("{} tags", tag_count), Style::default().fg(GruvboxColors::purple())),
+                Span::styled(format!("{tag_count} tags"), Style::default().fg(GruvboxColors::purple())),
             ]),
         ]
     } else {
@@ -708,7 +707,7 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         .title("═══ PASSWORDS ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-    let left_items = vec![
+    let left_items = [
         ("1", "View All", "Browse vault"),
         ("2", "Add New", "Create entry"),
         ("3", "Search", "Find passwords"),
@@ -727,7 +726,7 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
             let lines = vec![
                 Line::from(vec![
                     Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
-                    Span::styled(format!("[{}] ", num), Style::default().fg(GruvboxColors::orange())),
+                    Span::styled(format!("[{num}] "), Style::default().fg(GruvboxColors::orange())),
                     Span::styled(*title, style),
                 ]),
                 Line::from(vec![
@@ -747,7 +746,7 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         .title("═══ TOOLS ═══")
         .title_alignment(Alignment::Center)
         .style(Style::default().bg(GruvboxColors::bg0()));
-    let right_items = vec![
+    let right_items = [
         ("4", "Filter Tags", "Sort by tags"),
         ("5", "Generate", "Random password"),
         ("6", "Delete", "Remove entry"),
@@ -767,7 +766,7 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
             let lines = vec![
                 Line::from(vec![
                     Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
-                    Span::styled(format!("[{}] ", num), Style::default().fg(GruvboxColors::orange())),
+                    Span::styled(format!("[{num}] "), Style::default().fg(GruvboxColors::orange())),
                     Span::styled(*title, style),
                 ]),
                 Line::from(vec![
@@ -825,7 +824,7 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
     
     // Show filter status if active
     let filter_status = if let Some(ref tag) = app.active_tf {
-        format!(" (Filtered by: {})", tag)
+        format!(" (Filtered by: {tag})")
     } else if !app.search_query.is_empty() {
         format!(" (Search: {})", app.search_query)
     } else {
@@ -867,7 +866,7 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                                 Style::default().fg(GruvboxColors::yellow())
                             }
                         ),
-                        Span::styled(format!("  (Modified: {})", time_ago), Style::default().fg(GruvboxColors::gray())),
+                        Span::styled(format!("  (Modified: {time_ago})"), Style::default().fg(GruvboxColors::gray())),
                     ]),
                     Line::from(vec![
                         Span::raw("     "),
@@ -1001,7 +1000,7 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
             .map(|(i, tag)| format!("[{}]{} ", i + 1, tag))
             .collect::<Vec<_>>()
             .join(" ");
-        let tags_widget = Paragraph::new(format!("Added: {}", tags_display))
+        let tags_widget = Paragraph::new(format!("Added: {tags_display}"))
             .style(Style::default().fg(GruvboxColors::orange()))
             .wrap(Wrap { trim: true });
         f.render_widget(tags_widget, chunks[9]);
@@ -1110,7 +1109,7 @@ fn draw_edit_pwd(f: &mut Frame, size: Rect, app: &App) {
             .map(|(i, tag)| format!("[{}]{} ", i + 1, tag))
             .collect::<Vec<_>>()
             .join(" ");
-        let tags_widget = Paragraph::new(format!("Tags: {}", tags_display))
+        let tags_widget = Paragraph::new(format!("Tags: {tags_display}"))
             .style(Style::default().fg(GruvboxColors::orange()))
             .wrap(Wrap { trim: true });
         f.render_widget(tags_widget, chunks[9]);
@@ -1180,7 +1179,7 @@ fn draw_history(f: &mut Frame, size: Rect, app: &App) {
                                 ]),
                                 Line::from(vec![
                                     Span::raw("    "),
-                                    Span::styled(format!("Changed: {}", time_ago), Style::default().fg(GruvboxColors::gray())),
+                                    Span::styled(format!("Changed: {time_ago}"), Style::default().fg(GruvboxColors::gray())),
                                 ]),
                                 Line::from(""),
                             ];
@@ -1247,7 +1246,7 @@ fn draw_filter_tags(f: &mut Frame, size: Rect, app: &App) {
             items.push(ListItem::new(Line::from(vec![
                 Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
                 Span::styled(
-                    format!("[{}] ({} entries)", tag, count),
+                    format!("[{tag}] ({count} entries)"),
                     if is_selected {
                         Style::default().fg(GruvboxColors::orange()).add_modifier(Modifier::BOLD)
                     } else {
@@ -1740,11 +1739,8 @@ fn handle_epi(app: &mut App, key: KeyCode) {
 }
 
 fn handle_vhi(app: &mut App, key: KeyCode) {
-    match key {
-        KeyCode::Esc => {
-            app.screen = Screen::ViewPasswords;
-        }
-        _ => {}
+    if key == KeyCode::Esc {
+        app.screen = Screen::ViewPasswords;
     }
 }
 
@@ -1839,7 +1835,7 @@ fn handle_tfi(app: &mut App, key: KeyCode) {
             } else if app.select_tf <= app.all_tags.len() {
                 let tag = app.all_tags[app.select_tf - 1].0.clone();
                 app.filter_bt(Some(tag.clone()));
-                app.set_msg(&format!("Filtered by tag: {}", tag), MessageType::Success);
+                app.set_msg(&format!("Filtered by tag: {tag}"), MessageType::Success);
             }
         }
         KeyCode::Char('v') | KeyCode::Char('V') => {

@@ -44,7 +44,7 @@ pub fn calc_pwd_strength(pwd: &str) -> PwdStrength {
     
     let has_lower = pwd.chars().any(|c| c.is_lowercase());
     let has_upper = pwd.chars().any(|c| c.is_uppercase());
-    let has_digit = pwd.chars().any(|c| c.is_digit(10));
+    let has_digit = pwd.chars().any(|c| c.is_ascii_digit());
     let has_special = pwd.chars().any(|c| "!@#$%^&*()_+-=[]{};\':\"\\|,.<>/?".contains(c));
     
     let mut variety_count = 0;

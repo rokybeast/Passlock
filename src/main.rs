@@ -30,7 +30,7 @@ fn main() {
                 std::process::exit(0);
             }
             Err(e) => {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {e}");
                 std::process::exit(1);
             }
         }
@@ -52,7 +52,7 @@ fn main() {
                 std::process::exit(1);
             }
             Err(e) => {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {e}");
                 std::process::exit(1);
             }
         }
@@ -65,7 +65,7 @@ fn main() {
         if let Ok(data) = std::fs::read_to_string(&temp_path) {
             if let Ok(vault) = serde_json::from_str::<Vault>(&data) {
                 if let Err(e) = storage::svv(&vault, pwd) {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                     std::process::exit(1);
                 }
                 println!("✓ synced to vault");
@@ -77,7 +77,7 @@ fn main() {
     }
     
     if let Err(e) = ui::run_tui() {
-        eprintln!("Error running TUI: {}", e);
+        eprintln!("Error running TUI: {e}");
         std::process::exit(1);
     }
 }
