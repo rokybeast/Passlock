@@ -19,20 +19,14 @@ jobs:
       with:
         toolchain: stable
 
-    - name: Install dependencies
+    - name: Install libsodium (Ubuntu-style)
       run: |
         sudo apt-get update
-        sudo apt-get install -y libsodium-dev libsodium23 build-essential pkg-config
-
-    - name: Debug sodium.h location
-      run: |
-        echo "Checking for sodium.h..."
-        find /usr -name "sodium.h" 2>/dev/null
-        find /usr/local -name "sodium.h" 2>/dev/null
-        echo "Checking libsodium installation..."
-        dpkg -L libsodium-dev | grep -E "(sodium\.h|\.so)"
-        echo "Checking include paths..."
-        echo | cpp -Wp,-v 2>&1 | grep include
+        sudo apt-get install -y libsodium-dev libsodium23 build-essential
+        echo "Checking sodium.h location..."
+        find /usr -name "sodium.h" 2>/dev/null | head -5
+        echo "Listing /usr/include/sodium..."
+        ls -la /usr/include/sodium/ 2>/dev/null || echo "No /usr/include/sodium directory"
 
     - name: Cache Rust dependencies
       uses: actions/cache@v4

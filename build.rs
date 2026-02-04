@@ -16,18 +16,15 @@ fn main() {
         .flag("-Wall")
         .flag("-Wextra");
 
+    // Try multiple possible locations for sodium.h
     let possible_include_paths = [
         "/usr/include",
-        "/usr/local/include",
+        "/usr/local/include", 
         "/usr/include/x86_64-linux-gnu",
-        "/usr/lib/x86_64-linux-gnu/include",
     ];
 
     for path in &possible_include_paths {
-        if std::path::Path::new(path).exists() {
-            build.include(path);
-            println!("cargo:warning=Adding include path: {path}");
-        }
+        build.include(path);
     }
 
     build.compile("vault_engine");
