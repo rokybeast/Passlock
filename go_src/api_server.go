@@ -13,15 +13,22 @@ import (
 	"time"
 )
 
+type PasswordHistory struct {
+	Password  string `json:"password"`
+	ChangedAt uint64 `json:"changed_at"`
+}
+
 type Entry struct {
-	ID   string   `json:"id"`
-	N    string   `json:"n"`
-	U    string   `json:"u"`
-	P    string   `json:"p"`
-	Url  string   `json:"url,omitempty"`
-	Nt   string   `json:"nt,omitempty"`
-	T    uint64   `json:"t"`
-	Tags []string `json:"tags,omitempty"`
+	ID           string            `json:"id"`
+	N            string            `json:"n"`
+	U            string            `json:"u"`
+	P            string            `json:"p"`
+	Url          string            `json:"url,omitempty"`
+	Nt           string            `json:"nt,omitempty"`
+	T            uint64            `json:"t"`
+	Tags         []string          `json:"tags,omitempty"`
+	History      []PasswordHistory `json:"history,omitempty"`
+	LastModified uint64            `json:"last_modified,omitempty"`
 }
 
 type Vault struct {
@@ -341,15 +348,18 @@ func handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		now := uint64(time.Now().Unix())
 		e := Entry{
-			ID:   fmt.Sprintf("%d", time.Now().UnixNano()),
-			N:    name,
-			U:    user,
-			P:    pass,
-			Url:  url,
-			Nt:   note,
-			T:    uint64(time.Now().Unix()),
-			Tags: tags,
+			ID:           fmt.Sprintf("%d", time.Now().UnixNano()),
+			N:            name,
+			U:            user,
+			P:            pass,
+			Url:          url,
+			Nt:           note,
+			T:            now,
+			Tags:         tags,
+			History:      []PasswordHistory{},
+			LastModified: now,
 		}
 
 		v.E = append(v.E, e)
@@ -358,6 +368,74 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		os.WriteFile(tempP, tempD, 0600)
 
 		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "msg": "added"})
+
+	case "edit":
+		if v == nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "not unlocked"})
+			return
+		}
+
+		id, _ := req["id"].(string)
+		name, _ := req["name"].(string)
+		user, _ := req["user"].(string)
+		pass, _ := req["pass"].(string)
+		url, _ := req["url"].(string)
+		note, _ := req["note"].(string)
+
+		var tags []string
+		if tagsInterface, ok := req["tags"].([]interface{}); ok {
+			for _, t := range tagsInterface {
+				if tagStr, ok := t.(string); ok {
+					tags = append(tags, tagStr)
+				}
+			}
+		}
+
+		found := false
+		for i, entry := range v.E {
+			if entry.ID == id {
+				oldPass := entry.P
+				now := uint64(time.Now().Unix())
+
+				if oldPass != pass && pass != "" {
+					if len(entry.History) >= 5 {
+						entry.History = entry.History[1:]
+					}
+					entry.History = append(entry.History, PasswordHistory{
+						Password:  oldPass,
+						ChangedAt: now,
+					})
+				}
+
+				if name != "" {
+					entry.N = name
+				}
+				if user != "" {
+					entry.U = user
+				}
+				if pass != "" {
+					entry.P = pass
+				}
+				entry.Url = url
+				entry.Nt = note
+				entry.Tags = tags
+				entry.LastModified = now
+
+				v.E[i] = entry
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "msg": "entry not found"})
+			return
+		}
+
+		tempD, _ := json.Marshal(v)
+		os.WriteFile(tempP, tempD, 0600)
+
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "msg": "updated"})
 
 	case "delete":
 		if v == nil {
