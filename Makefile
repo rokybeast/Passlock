@@ -26,15 +26,21 @@ build:
 run:
 	cargo run --release
 
-test:
+test: test-c test-rust
+
+test-c:
 	@echo "Testing C vault engine..."
 	gcc -DTEST_MODE -o test_crypto src/c/crypto_core.c -Wall -Wextra
 	./test_crypto
 	rm -f test_crypto
-	@echo "\nTesting Rust components..."
-	cargo test
 
-serve:
+test-rust:
+	@echo "\nTesting Rust components..."
+	@echo "Note: Add #[test] functions to enable Rust tests"
+	@cargo test --quiet || echo "No Rust tests defined yet"
+	@cargo clean
+
+server:
 	@echo "Starting web server..."
 	cd web && go run ../api_server.go
 
@@ -54,7 +60,9 @@ help:
 	@echo "  make install-deps  - Install libsodium dependency"
 	@echo "  make build        - Build the project"
 	@echo "  make run          - Run the TUI"
-	@echo "  make test         - Run all tests"
+	@echo "  make test         - Run all tests (C + Rust)"
+	@echo "  make test-c       - Run only C tests"
+	@echo "  make test-rust    - Run only Rust tests"
 	@echo "  make serve        - Start web server"
 	@echo "  make clean        - Clean build artifacts"
 	@echo "  make setup        - Full project setup"

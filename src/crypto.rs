@@ -137,3 +137,99 @@ pub fn calc_pwd_strength(password: &str) -> PasswordStrength {
 pub fn secure_wipe(data: &mut [u8]) {
     vault_ffi::secure_zero(data);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pwd_sw() {
+        let result = calc_pwd_strength("abc");
+        assert_eq!(result.strength, "Weak");
+        assert!(result.score <= 2);
+    }
+
+    #[test]
+    fn test_pwd_ss() {
+        let result = calc_pwd_strength("MyP@ssw0rd!VeryStrong");
+        assert_eq!(result.strength, "Strong");
+        assert!(result.score >= 7);
+    }
+
+    #[test]
+    fn test_pwd_cp() {
+        let result = calc_pwd_strength("password123");
+        assert!(result
+            .feedback
+            .iter()
+            .any(|f| f.contains("common patterns")));
+    }
+
+    #[test]
+    fn test_gpwdl() {
+        let pwd = gen_pwd(16);
+        assert_eq!(pwd.len(), 16);
+    }
+
+    #[test]
+    fn test_gpwdv() {
+        let pwd = gen_pwd(20);
+        let has_lower = pwd.chars().any(|c| c.is_lowercase());
+        let has_upper = pwd.chars().any(|c| c.is_uppercase());
+        assert!(has_lower || has_upper);
+    }
+
+    #[test]
+    fn test_sgen() {
+        let salt1 = gen_salt();
+        let salt2 = gen_salt();
+        assert_ne!(salt1, salt2);
+        assert_eq!(salt1.len(), 32); // 16 bytes = 32 hex chars
+    }
+
+    #[test]
+    fn test_edr() {
+        if init_crypto().is_err() {
+            println!("Skipping crypto test - libsodium not available");
+            return;
+        }
+
+        let plaintext = b"Hello, World! This is a test.";
+        let password = "test_password_123";
+        let salt = gen_salt();
+
+        let encrypted = enc(plaintext, password, &salt).expect("Encryption failed");
+        let decrypted = dec(&encrypted, password, &salt).expect("Decryption failed");
+
+        assert_eq!(plaintext, &decrypted[..]);
+
+        cleanup();
+    }
+
+    #[test]
+    fn test_wpwdf() {
+        if init_crypto().is_err() {
+            println!("Skipping crypto test - libsodium not available");
+            return;
+        }
+
+        let plaintext = b"Secret data";
+        let password = "correct_password";
+        let wrong_password = "wrong_password";
+        let salt = gen_salt();
+
+        let encrypted = enc(plaintext, password, &salt).expect("Encryption failed");
+        let result = dec(&encrypted, wrong_password, &salt);
+
+        assert!(result.is_err());
+
+        cleanup();
+    }
+
+    #[test]
+    fn test_sw() {
+        let mut data = vec![1u8, 2, 3, 4, 5];
+        secure_wipe(&mut data);
+        assert_eq!(data, vec![0u8, 0, 0, 0, 0]);
+    }
+}
