@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 name: Passlock CI
+=======
+name: Passlock Build Check
+>>>>>>> aff335b560744fb2050861729e0cc0adc13e02f8
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
+<<<<<<< HEAD
     branches: [ "main" ]
 
 jobs:
@@ -78,3 +83,38 @@ jobs:
     - name: Test Go HTTP API
       working-directory: ./go_src
       run: go test -v ./...
+=======
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+        sudo apt-get install -y golang
+
+    - name: Build project
+      run: make build
+
+    - name: Run tests
+      run: make test
+
+    - name: Quick run check
+      run: |
+        # Just make sure the binary exists and can run
+        if [ -f ./target/debug/passlock ]; then
+          ./target/debug/passlock --version || echo "Couldn't get version but binary exists"
+        fi
+>>>>>>> aff335b560744fb2050861729e0cc0adc13e02f8
