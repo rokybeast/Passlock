@@ -1,11 +1,9 @@
 name: C CI
-
 on:
   push:
     branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
-
 jobs:
   c-build-test:
     name: C Build & Test
@@ -31,7 +29,10 @@ jobs:
 
     - name: Install libsodium (macOS)
       if: runner.os == 'macOS'
-      run: brew install libsodium
+      run: |
+        brew install libsodium
+        echo "CPATH=/opt/homebrew/include:/usr/local/include:$CPATH" >> $GITHUB_ENV
+        echo "LIBRARY_PATH=/opt/homebrew/lib:/usr/local/lib:$LIBRARY_PATH" >> $GITHUB_ENV
 
     - name: Set compiler
       run: |
@@ -43,11 +44,21 @@ jobs:
 
     - name: Build C vault engine
       run: |
-        mkdir -p src/c
-        cd src/c
-        $CC -c vault_engine.c -I. -fPIC -Wall -Wextra -O3 || echo "vault_engine.c not found, skipping"
-        $CC -c crypto_core.c -I. -fPIC -Wall -Wextra -O3 || echo "crypto_core.c not found, skipping"
-        echo "C compilation successful"
+        if [ -f src/c/vault_engine.c ]; then
+          cd src/c
+          $CC -c vault_engine.c -I. -fPIC -Wall -Wextra -O3
+          echo "vault_engine.c compiled successfully"
+        else
+          echo "vault_engine.c not found, skipping"
+        fi
+        
+        if [ -f src/c/crypto_core.c ]; then
+          cd src/c
+          $CC -c crypto_core.c -I. -fPIC -Wall -Wextra -O3
+          echo "crypto_core.c compiled successfully"
+        else
+          echo "crypto_core.c not found, skipping"
+        fi
 
     - name: Run C tests (crypto_core)
       run: |
@@ -55,6 +66,7 @@ jobs:
           $CC -DTEST_MODE -o test_crypto src/c/crypto_core.c -Wall -Wextra
           ./test_crypto
           rm -f test_crypto
+          echo "C tests passed"
         else
           echo "crypto_core.c not found, skipping tests"
         fi
@@ -76,6 +88,8 @@ jobs:
           $CC -DTEST_MODE -O3 -o test_crypto_o3 src/c/crypto_core.c -Wall -Wextra
           ./test_crypto_o3
           rm -f test_crypto_o3
+          
+          echo "All optimization levels passed"
         else
           echo "crypto_core.c not found, skipping optimization tests"
         fi
@@ -88,6 +102,7 @@ jobs:
           $CC -DTEST_MODE -g -o test_crypto src/c/crypto_core.c -Wall -Wextra
           valgrind --leak-check=full --error-exitcode=1 ./test_crypto
           rm -f test_crypto
+          echo "No memory leaks detected"
         else
           echo "crypto_core.c not found, skipping valgrind"
         fi
@@ -98,6 +113,7 @@ jobs:
         if [ -d src/c ]; then
           sudo apt-get install -y cppcheck
           cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem src/c/ || true
+          echo "Static analysis completed"
         else
           echo "src/c not found, skipping cppcheck"
         fi
