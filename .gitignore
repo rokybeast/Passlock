@@ -1,3 +1,36 @@
-target/
-.vscode
-Cargo.lock
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# C
+*.o
+*.so
+*.dylib
+*.a
+test_crypto
+
+# Go
+passlock-server
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Build artifacts
+*.dSYM/
+
+# Temporary files
+.passlock.vault
+.passlock.temp
+
+# BUT DO commit Cargo.lock for reproducible builds!
+# Cargo.lock should be committed for binaries
+!/Cargo.lock

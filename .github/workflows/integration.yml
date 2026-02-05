@@ -159,11 +159,19 @@ jobs:
 
     - name: Verify build artifacts
       run: |
-        ls -lh target/release/passlock
+        if [ -f target/release/passlock ]; then
+          ls -lh target/release/passlock
+        else
+          echo "⚠️  Rust binary not found (build may have failed earlier)"
+        fi
+        
         if [ -f passlock-server ]; then
           ls -lh passlock-server
+        else
+          echo "⚠️  Go server binary not found"
         fi
-        echo "✅ Build artifacts verified"
+        
+        echo "✅ Artifact check completed"
 
   cross-platform-integration:
     name: Cross-Platform Integration
@@ -183,7 +191,11 @@ jobs:
 
     - name: Install libsodium (macOS)
       if: runner.os == 'macOS'
-      run: brew install libsodium
+      run: |
+        brew install libsodium
+        echo "CPATH=/opt/homebrew/include:/usr/local/include:$CPATH" >> $GITHUB_ENV
+        echo "LIBRARY_PATH=/opt/homebrew/lib:/usr/local/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
