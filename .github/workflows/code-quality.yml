@@ -78,8 +78,8 @@ jobs:
         if [ ! -f deny.toml ]; then
           echo '[licenses]' > deny.toml
           echo 'allow = ["MIT", "Apache-2.0"]' >> deny.toml
-          echo 'unlicensed = "allow"' >> deny.toml
-          echo 'copyleft = "deny"' >> deny.toml
+        else
+          echo "deny.toml already exists, using existing config"
         fi
     - name: Check licenses
       run: cargo deny check licenses || true

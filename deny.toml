@@ -1,5 +1,2 @@
-# deny.toml (minimal)
 [licenses]
 allow = ["MIT", "Apache-2.0"]
-unlicensed = "allow"
-copyleft = "deny"
