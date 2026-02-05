@@ -42,7 +42,7 @@ test-rust:
 
 server:
 	@echo "Starting web server..."
-	cd web && go run ../api_server.go
+	go run api_server.go
 
 clean:
 	cargo clean
