@@ -9,10 +9,8 @@ allow = [
     "Zlib",
     "BSD-3-Clause",
     "BSD-2-Clause",
-    "ISC",
     "WTFPL",
     "Unicode-3.0",
-    "Unicode-DFS-2016",
 ]
 unused-allowed-license = "warn"
 
