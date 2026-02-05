@@ -1,4 +1,3 @@
-mkdir -p .cargo
 cat > .cargo/audit.toml << 'EOF'
 # Security audit configuration for PassLock
 # This file configures cargo-audit to ignore specific warnings

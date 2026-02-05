@@ -49,9 +49,7 @@ jobs:
 
     - name: Install libsodium (Ubuntu)
       if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libsodium-dev
+      run: sudo apt-get update && sudo apt-get install -y libsodium-dev
 
     - name: Install libsodium (macOS)
       if: runner.os == 'macOS'
@@ -92,16 +90,17 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
 
     - name: Generate Cargo.lock if missing
-      run: |
-        if [ ! -f Cargo.lock ]; then
-          cargo generate-lockfile
-        fi
+      run: if [ ! -f Cargo.lock ]; then cargo generate-lockfile; fi
 
-    - name: Show audit configuration
+    - name: Create audit configuration
       run: |
-        echo "Using audit configuration from .cargo/audit.toml:"
-        cat .cargo/audit.toml
-        echo ""
+        mkdir -p .cargo
+        echo '[advisories]' > .cargo/audit.toml
+        echo 'ignore = ["RUSTSEC-2026-0002"]' >> .cargo/audit.toml
+        echo '' >> .cargo/audit.toml
+        echo '[allow]' >> .cargo/audit.toml
+        echo 'unmaintained = ["paste"]' >> .cargo/audit.toml
+        echo "Created .cargo/audit.toml"
 
     - name: Install cargo-audit
       run: cargo install cargo-audit
@@ -109,22 +108,6 @@ jobs:
     - name: Run security audit
       run: |
         echo "=== Running Security Audit ==="
-        echo ""
-        
-        # Run cargo audit
         cargo audit
-        
-        echo ""
-        echo "=== Audit Summary ==="
-        echo "Security audit completed successfully"
-        echo ""
-        echo "Note: The following warnings are configured to be ignored:"
-        echo "  1. lru crate (RUSTSEC-2026-0002) - unsoundness in ratatui dependency"
-        echo "     - Status: Waiting for ratatui to update lru dependency"
-        echo "     - Impact: Code safety issue, not security vulnerability"
-        echo ""
-        echo "  2. paste crate (RUSTSEC-2024-0436) - unmaintained"
-        echo "     - Status: Monitoring for alternatives"
-        echo "     - Impact: No active maintenance, but still functional"
-        echo ""
-        echo "These issues are tracked and will be addressed when possible."
+        echo "=== Audit completed ==="
+        echo "Note: lru and paste warnings are ignored via .cargo/audit.toml"
