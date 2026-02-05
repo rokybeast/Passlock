@@ -2,71 +2,89 @@ name: Rust CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main]
+    branches: [ main, develop ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
+  rust-check:
+    name: Rust Check, Build & Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rust: [stable, nightly]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
       with:
-        toolchain: stable
-        components: clippy, rustfmt
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt, clippy
 
-    - name: Install libsodium dependency
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libsodium-dev build-essential
-
-    - name: Cache Rust dependencies
+    - name: Cache cargo registry
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Build Rust project
-      run: cargo build --release
-      
-    - name: Build verification
+    - name: Cache cargo index
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo build
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install libsodium (Ubuntu)
+      if: runner.os == 'Linux'
       run: |
-        if [ -f ./target/release/passlock ]; then
-          echo "Rust binary compiled: ./target/release/passlock"
-        else
-          echo "Rust binary not found"
-          exit 1
-        fi
+        sudo apt-get update
+        sudo apt-get install -y libsodium-dev
+
+    - name: Install libsodium (macOS)
+      if: runner.os == 'macOS'
+      run: brew install libsodium
+
+    - name: Check formatting
+      if: matrix.rust == 'stable'
+      run: cargo fmt --all -- --check
+
+    - name: Run clippy
+      if: matrix.rust == 'stable'
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Build (debug)
+      run: cargo build --verbose
+
+    - name: Build (release)
+      run: cargo build --release --verbose
 
     - name: Run Rust tests
       run: cargo test --verbose
 
-    - name: Check formatting
-      run: cargo fmt -- --check
+    - name: Check documentation
+      run: cargo doc --no-deps --all-features
 
-    - name: Run Clippy
-      run: cargo clippy -- -D warnings
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Verify Rust CLI works
-      run: |
-        echo "Testing Rust CLI..."
-        if ./target/release/passlock --help 2>&1 | head -2; then
-          echo "Rust CLI works correctly"
-        elif ./target/release/passlock -h 2>&1 | head -2; then
-          echo "Rust CLI works correctly"
-        else
-          timeout 3 ./target/release/passlock 2>&1 | head -2 && echo "TUI starts (no --help flag)" || echo "TUI may have issues"
-        fi
+    - name: Run security audit
+      uses: rustsec/audit-check@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
