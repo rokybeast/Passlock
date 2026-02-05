@@ -1,11 +1,9 @@
 name: Code Quality
-
 on:
   push:
     branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
-
 jobs:
   rust-quality:
     name: Rust Code Quality
@@ -14,26 +12,20 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
-
     - name: Install libsodium
       run: |
         sudo apt-get update
         sudo apt-get install -y libsodium-dev
-
     - name: Check Rust formatting
       run: cargo fmt --all -- --check
-
     - name: Run Clippy (warnings as errors)
       run: cargo clippy --all-targets --all-features -- -D warnings
-
     - name: Run Clippy (pedantic)
       run: cargo clippy --all-targets --all-features -- -W clippy::pedantic || true
-
     - name: Check for unused dependencies
       run: |
         cargo install cargo-udeps || true
@@ -47,10 +39,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install analysis tools
+    - name: Install analysis tools and libsodium
       run: |
         sudo apt-get update
-        sudo apt-get install -y cppcheck clang-tidy
+        sudo apt-get install -y cppcheck clang-tidy libsodium-dev
 
     - name: Run cppcheck
       run: |
@@ -63,7 +55,7 @@ jobs:
     - name: Run clang-tidy
       run: |
         if [ -d src/c ]; then
-          clang-tidy src/c/*.c -- -I src/c || true
+          clang-tidy src/c/*.c -- -I src/c -I /usr/include -I /usr/local/include || true
         else
           echo "src/c not found"
         fi
@@ -75,12 +67,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
-
     - name: Install cargo-deny
       run: cargo install cargo-deny
-
     - name: Check licenses
       run: cargo deny check licenses || true
