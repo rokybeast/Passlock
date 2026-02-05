@@ -2,10 +2,10 @@
 allow = [
     "MIT",
     "Apache-2.0",
-    "MPL-2.0",           # For colored and option-ext
-    "Zlib",              # For foldhash
-    "BSD-3-Clause",      # For subtle
-    "WTFPL",             # For terminfo
-    "Unicode-3.0",       # For unicode-ident
-    "MIT OR Apache-2.0", # For dual-licensed crates
+    "MPL-2.0",
+    "Zlib",
+    "BSD-3-Clause",
+    "WTFPL",
+    "Unicode-3.0",
+    "(MIT OR Apache-2.0) AND Unicode-3.0",
 ]

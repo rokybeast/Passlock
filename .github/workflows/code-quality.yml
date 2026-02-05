@@ -85,7 +85,6 @@ jobs:
           echo '    "BSD-3-Clause",' >> deny.toml
           echo '    "WTFPL",' >> deny.toml
           echo '    "Unicode-3.0",' >> deny.toml
-          echo '    "MIT OR Apache-2.0",' >> deny.toml
           echo ']' >> deny.toml
         else
           echo "deny.toml already exists, using existing config"
