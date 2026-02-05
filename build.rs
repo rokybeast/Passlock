@@ -22,16 +22,16 @@ fn main() {
         // Homebrew paths (both Intel and Apple Silicon)
         build.include("/opt/homebrew/include");
         build.include("/usr/local/include");
-        
+
         println!("cargo:rustc-link-search=/opt/homebrew/lib");
         println!("cargo:rustc-link-search=/usr/local/lib");
     }
-    
+
     #[cfg(target_os = "linux")]
     {
         build.include("/usr/include");
         build.include("/usr/local/include");
-        
+
         println!("cargo:rustc-link-search=/usr/lib");
         println!("cargo:rustc-link-search=/usr/lib/x86_64-linux-gnu");
         println!("cargo:rustc-link-search=/usr/local/lib");
