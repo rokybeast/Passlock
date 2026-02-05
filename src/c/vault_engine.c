@@ -55,7 +55,16 @@ void *vault_memcpy(void *dest, const void *src, size_t n) {
     if (dest == NULL || src == NULL || n == 0) {
         return dest;
     }
-    return memcpy(dest, src, n);
+    
+    // updated for byte check
+    unsigned char *d = (unsigned char *)dest;
+    const unsigned char *s = (const unsigned char *)src;
+    
+    for (size_t i = 0; i < n; i++) {
+        d[i] = s[i];
+    }
+    
+    return dest;
 }
 
 int vault_encrypt(
@@ -88,11 +97,11 @@ int vault_encrypt(
         return VAULT_ERROR_MEMORY;
     }
 
-    // sade mem copy bounds checking*
+    // safe mem copy with bounds checks
     if (ciphertext_len >= NONCE_LENGTH) {
         vault_memcpy(ciphertext, nonce, NONCE_LENGTH);
     } else {
-        // just a safety measure
+        // shouldnt happen, but sanity and safety
         free(ciphertext);
         vault_secure_zero(key, KEY_LENGTH);
         vault_secure_zero(nonce, NONCE_LENGTH);
