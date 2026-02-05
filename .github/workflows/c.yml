@@ -47,7 +47,7 @@ jobs:
         cd src/c
         $CC -c vault_engine.c -I. -fPIC -Wall -Wextra -O3 || echo "vault_engine.c not found, skipping"
         $CC -c crypto_core.c -I. -fPIC -Wall -Wextra -O3 || echo "crypto_core.c not found, skipping"
-        echo "✅ C compilation successful"
+        echo "C compilation successful"
 
     - name: Run C tests (crypto_core)
       run: |

@@ -16,10 +16,8 @@ fn main() {
         .flag("-Wall")
         .flag("-Wextra");
 
-    // Add common include paths for libsodium
     #[cfg(target_os = "macos")]
     {
-        // Homebrew paths (both Intel and Apple Silicon)
         build.include("/opt/homebrew/include");
         build.include("/usr/local/include");
 

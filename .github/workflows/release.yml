@@ -148,7 +148,7 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -o passlock-server-macos-amd64 api_server.go
           GOOS=darwin GOARCH=arm64 go build -o passlock-server-macos-arm64 api_server.go
         else
-          echo "⚠️  api_server.go not found, skipping Go server build"
+          echo "api_server.go not found, skipping Go server build"
         fi
 
     - name: Upload Go Server (Linux)

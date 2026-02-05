@@ -45,20 +45,20 @@ jobs:
         ./target/release/passlock create testpassword123
         
         if [ ! -f ~/.passlock.vault ]; then
-          echo "❌ Vault file not created"
+          echo "Vault file not created"
           exit 1
         fi
-        echo "✅ Vault created successfully"
+        echo "Vault created successfully"
 
     - name: Test CLI unlock command
       run: |
         ./target/release/passlock unlock testpassword123
         
         if [ ! -f ~/.passlock.temp ]; then
-          echo "❌ Temp file not created"
+          echo "Temp file not created"
           exit 1
         fi
-        echo "✅ Vault unlocked successfully"
+        echo "Vault unlocked successfully"
 
     - name: Test full encryption/decryption cycle
       run: |
@@ -71,14 +71,14 @@ jobs:
         
         ./target/release/passlock sync mySecurePass123
         
-        echo "✅ Full encryption cycle completed"
+        echo "Full encryption cycle completed"
 
     - name: Build Go server
       run: |
         if [ -f api_server.go ]; then
           go build -o passlock-server api_server.go
         else
-          echo "⚠️  api_server.go not found, skipping Go build"
+          echo "api_server.go not found, skipping Go build"
         fi
 
     - name: Start Go server in background
@@ -88,7 +88,7 @@ jobs:
           echo $! > server.pid
           sleep 3
         else
-          echo "⚠️  passlock-server binary not found, skipping server tests"
+          echo "passlock-server binary not found, skipping server tests"
         fi
 
     - name: Test server health endpoint
@@ -98,13 +98,13 @@ jobs:
           echo "Health response: $response"
           
           if echo "$response" | grep -q "ok"; then
-            echo "✅ Server health check passed"
+            echo "Server health check passed"
           else
-            echo "❌ Server health check failed"
+            echo "Server health check failed"
             exit 1
           fi
         else
-          echo "⚠️  Server not running, skipping health check"
+          echo "Server not running, skipping health check"
         fi
 
     - name: Test server API endpoints
@@ -114,13 +114,13 @@ jobs:
           echo "Check response: $response"
           
           if echo "$response" | grep -q "ok"; then
-            echo "✅ API check endpoint working"
+            echo "API check endpoint working"
           else
-            echo "❌ API check endpoint failed"
+            echo "API check endpoint failed"
             exit 1
           fi
         else
-          echo "⚠️  Server not running, skipping API tests"
+          echo "Server not running, skipping API tests"
         fi
 
     - name: Test password strength endpoint
@@ -133,12 +133,12 @@ jobs:
           echo "Strength response: $response"
           
           if echo "$response" | grep -q "Strong\|Good"; then
-            echo "✅ Password strength endpoint working"
+            echo "Password strength endpoint working"
           else
-            echo "⚠️  Unexpected strength response"
+            echo "Unexpected strength response"
           fi
         else
-          echo "⚠️  Server not running, skipping strength test"
+          echo "Server not running, skipping strength test"
         fi
 
     - name: Stop server
@@ -151,9 +151,9 @@ jobs:
     - name: Run all tests (if Makefile exists)
       run: |
         if [ -f Makefile ]; then
-          make test || echo "⚠️  Some tests failed or Makefile targets missing"
+          make test || echo "Some tests failed or Makefile targets missing"
         else
-          echo "⚠️  Makefile not found, running cargo test directly"
+          echo "Makefile not found, running cargo test directly"
           cargo test
         fi
 
@@ -162,16 +162,16 @@ jobs:
         if [ -f target/release/passlock ]; then
           ls -lh target/release/passlock
         else
-          echo "⚠️  Rust binary not found (build may have failed earlier)"
+          echo "Rust binary not found (build may have failed earlier)"
         fi
         
         if [ -f passlock-server ]; then
           ls -lh passlock-server
         else
-          echo "⚠️  Go server binary not found"
+          echo "Go server binary not found"
         fi
         
-        echo "✅ Artifact check completed"
+        echo "Artifact check completed"
 
   cross-platform-integration:
     name: Cross-Platform Integration
@@ -208,4 +208,4 @@ jobs:
         ./target/release/passlock create password123
         ./target/release/passlock unlock password123
         
-        echo "✅ Cross-platform build successful on ${{ matrix.os }}"
+        echo "Cross-platform build successful on ${{ matrix.os }}"

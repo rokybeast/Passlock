@@ -97,7 +97,12 @@ jobs:
           cargo generate-lockfile
         fi
 
-    - name: Run security audit
+    - name: Update vulnerable dependencies
+      run: |
+        cargo update -p lru --precise 0.16.3
+
+    - name: Run cargo audit (skip unmaintained warnings)
       uses: rustsec/audit-check@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        args: --deny warnings

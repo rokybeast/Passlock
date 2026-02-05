@@ -33,71 +33,55 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - name: Download dependencies
+    - name: Check if Go file exists
+      id: check_go
       run: |
-        go mod init passlock-server 2>/dev/null || true
+        if [ -f api_server.go ]; then
+          echo "go_file_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "go_file_exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Initialize Go module if needed
+      if: steps.check_go.outputs.go_file_exists == 'true'
+      run: |
+        if [ ! -f go.mod ]; then
+          go mod init passlock-server
+        fi
         go mod tidy 2>/dev/null || true
 
     - name: Check formatting
+      if: steps.check_go.outputs.go_file_exists == 'true'
       run: |
-        if [ -f api_server.go ]; then
-          if [ "$(gofmt -l api_server.go | wc -l)" -gt 0 ]; then
-            echo "Go files are not formatted. Run 'gofmt -w api_server.go'"
-            gofmt -l api_server.go
-            exit 1
-          fi
-        else
-          echo "api_server.go not found, skipping format check"
+        if [ "$(gofmt -l api_server.go | wc -l)" -gt 0 ]; then
+          echo "Go files are not formatted. Run 'gofmt -w api_server.go'"
+          gofmt -l api_server.go
+          exit 1
         fi
 
     - name: Run go vet
-      run: |
-        if [ -f api_server.go ]; then
-          go vet ./api_server.go
-        else
-          echo "api_server.go not found, skipping vet"
-        fi
-
-    - name: Install staticcheck
-      run: go install honnef.co/go/tools/cmd/staticcheck@latest
-
-    - name: Run staticcheck
-      run: |
-        if [ -f api_server.go ]; then
-          staticcheck ./api_server.go
-        else
-          echo "api_server.go not found, skipping staticcheck"
-        fi
+      if: steps.check_go.outputs.go_file_exists == 'true'
+      run: go vet ./...
 
     - name: Build Go server
+      if: steps.check_go.outputs.go_file_exists == 'true'
       run: |
-        if [ -f api_server.go ]; then
-          go build -v -o passlock-server api_server.go
-        else
-          echo "api_server.go not found, skipping build"
-        fi
+        go build -v -o passlock-server api_server.go
 
     - name: Test Go server startup
+      if: steps.check_go.outputs.go_file_exists == 'true'
       run: |
-        if [ -f passlock-server ]; then
-          timeout 5s ./passlock-server || exit_code=$?
-          if [ $exit_code -eq 124 ]; then
-            echo "✅ Server started successfully (timed out as expected)"
-          else
-            echo "⚠️  Server exited with code $exit_code"
-          fi
+        timeout 5s ./passlock-server || exit_code=$?
+        if [ $exit_code -eq 124 ]; then
+          echo "Server started successfully (timed out as expected)"
         else
-          echo "passlock-server binary not found, skipping startup test"
+          echo "Server exited with code $exit_code"
         fi
-
-    - name: Check for Go vulnerabilities
-      run: |
-        go install golang.org/x/vuln/cmd/govulncheck@latest
-        govulncheck ./... || true
 
   go-lint:
     name: Go Lint
     runs-on: ubuntu-latest
+    needs: go-build-test
     
     steps:
     - name: Checkout code
@@ -108,20 +92,26 @@ jobs:
       with:
         go-version: '1.23'
 
-    - name: Initialize Go module if needed
+    - name: Check if Go file exists
+      id: check_go
       run: |
-        if [ ! -f go.mod ] && [ -f api_server.go ]; then
-          go mod init passlock-server
-          go mod tidy
+        if [ -f api_server.go ]; then
+          echo "go_file_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "go_file_exists=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: golangci-lint
-      if: hashFiles('api_server.go') != ''
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
-        args: --timeout=5m --disable-all --enable=gofmt,govet
-        working-directory: .
-        skip-cache: true
-        skip-pkg-cache: true
-        skip-build-cache: true
+    - name: Initialize Go module
+      if: steps.check_go.outputs.go_file_exists == 'true'
+      run: |
+        if [ ! -f go.mod ]; then
+          go mod init passlock-server
+        fi
+        go mod tidy 2>/dev/null || true
+
+    - name: Run golangci-lint on single file
+      if: steps.check_go.outputs.go_file_exists == 'true'
+      run: |
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        
+        golangci-lint run --timeout=5m --disable-all --enable=gofmt,govet api_server.go

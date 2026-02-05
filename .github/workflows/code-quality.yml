@@ -57,7 +57,7 @@ jobs:
         if [ -d src/c ]; then
           cppcheck --enable=all --suppress=missingIncludeSystem src/c/
         else
-          echo "⚠️  src/c not found"
+          echo "src/c not found"
         fi
 
     - name: Run clang-tidy
@@ -65,7 +65,7 @@ jobs:
         if [ -d src/c ]; then
           clang-tidy src/c/*.c -- -I src/c || true
         else
-          echo "⚠️  src/c not found"
+          echo "src/c not found"
         fi
 
   go-quality:
@@ -86,7 +86,7 @@ jobs:
         if [ -f api_server.go ]; then
           test -z "$(gofmt -l api_server.go)"
         else
-          echo "⚠️  api_server.go not found"
+          echo "api_server.go not found"
         fi
 
     - name: Run go vet
@@ -94,7 +94,7 @@ jobs:
         if [ -f api_server.go ]; then
           go vet ./api_server.go
         else
-          echo "⚠️  api_server.go not found"
+          echo "api_server.go not found"
         fi
 
     - name: golangci-lint
