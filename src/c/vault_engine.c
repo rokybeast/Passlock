@@ -51,6 +51,13 @@ int vault_derive_key(
     return VAULT_SUCCESS;
 }
 
+void *vault_memcpy(void *dest, const void *src, size_t n) {
+    if (dest == NULL || src == NULL || n == 0) {
+        return dest;
+    }
+    return memcpy(dest, src, n);
+}
+
 int vault_encrypt(
     const unsigned char *plaintext,
     size_t plaintext_len,
@@ -81,7 +88,16 @@ int vault_encrypt(
         return VAULT_ERROR_MEMORY;
     }
 
-    memcpy(ciphertext, nonce, NONCE_LENGTH);
+    // sade mem copy bounds checking*
+    if (ciphertext_len >= NONCE_LENGTH) {
+        vault_memcpy(ciphertext, nonce, NONCE_LENGTH);
+    } else {
+        // just a safety measure
+        free(ciphertext);
+        vault_secure_zero(key, KEY_LENGTH);
+        vault_secure_zero(nonce, NONCE_LENGTH);
+        return VAULT_ERROR;
+    }
 
     unsigned long long actual_ciphertext_len;
     if (crypto_aead_aes256gcm_encrypt(
@@ -97,6 +113,7 @@ int vault_encrypt(
         ) != 0) {
         free(ciphertext);
         vault_secure_zero(key, KEY_LENGTH);
+        vault_secure_zero(nonce, NONCE_LENGTH);
         return VAULT_ERROR_CRYPTO;
     }
 
