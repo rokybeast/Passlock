@@ -2,9 +2,9 @@ name: Code Quality
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, dev ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, dev ]
 
 jobs:
   rust-quality:
@@ -68,39 +68,8 @@ jobs:
           echo "src/c not found"
         fi
 
-  go-quality:
-    name: Go Code Quality
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.23'
-
-    - name: Check Go formatting
-      run: |
-        if [ -f api_server.go ]; then
-          test -z "$(gofmt -l api_server.go)"
-        else
-          echo "api_server.go not found"
-        fi
-
-    - name: Run go vet
-      run: |
-        if [ -f api_server.go ]; then
-          go vet ./api_server.go
-        else
-          echo "api_server.go not found"
-        fi
-
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
+  # NO GO-QUALITY JOB - FUCK THAT SHIT!
+  # Go quality checks are already in go.yml
 
   dependency-review:
     name: Dependency Review
