@@ -14,15 +14,6 @@ allow = [
     "Unicode-3.0",
     "Unicode-DFS-2016",
 ]
-
-# This key doesn't exist in newer versions
-# confidence-threshold = 0.8
-
-# [licenses.private] doesn't exist either
-# ignore = false
-
-# Fix this section - it should be just the level
-[licenses]
 unused-allowed-license = "warn"
 
 [bans]
