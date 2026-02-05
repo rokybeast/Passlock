@@ -47,7 +47,9 @@ jobs:
     - name: Run cppcheck
       run: |
         if [ -d src/c ]; then
-          cppcheck --enable=all --suppress=missingIncludeSystem src/c/
+          # Create a suppression file for library functions
+          echo "unusedFunction:src/c/vault_engine.c" > cppcheck-suppressions.txt
+          cppcheck --enable=all --suppress=missingIncludeSystem --suppressions-list=cppcheck-suppressions.txt src/c/
         else
           echo "src/c not found"
         fi

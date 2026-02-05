@@ -54,7 +54,7 @@ void txb() {
     printf("Testing xor_buf... ");
     unsigned char data[] = {0xAA, 0xBB, 0xCC, 0xDD};
     unsigned char key[] = {0x12, 0x34};
-    unsigned char expected[] = {0xAA^0x12, 0xBB^0x34, 0xCC^0x12, 0xDD^0x34};
+    const unsigned char expected[] = {0xAA^0x12, 0xBB^0x34, 0xCC^0x12, 0xDD^0x34};
     
     xor_buf(data, sizeof(data), key, sizeof(key));
     
@@ -122,9 +122,9 @@ void tsz() {
 
 void test_scmp() {
     printf("Testing safe_cmp... ");
-    char a[] = "test123";
-    char b[] = "test123";
-    char c[] = "test124";
+    const char a[] = "test123";
+    const char b[] = "test123";
+    const char c[] = "test124";
     
     int r1 = safe_cmp(a, b, strlen(a));
     int r2 = safe_cmp(a, c, strlen(a));
