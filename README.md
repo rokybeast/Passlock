@@ -193,10 +193,10 @@ This project prioritizes **clarity, control, and auditability** over convenience
 
 ## Status
 
-![Rust CI](https://github.com/YOUR_USERNAME/passlock/actions/workflows/rust-ci.yml/badge.svg)
-![C CI](https://github.com/YOUR_USERNAME/passlock/actions/workflows/c-ci.yml/badge.svg)
-![Go CI](https://github.com/YOUR_USERNAME/passlock/actions/workflows/go-ci.yml/badge.svg)
-![Integration](https://github.com/YOUR_USERNAME/passlock/actions/workflows/integration.yml/badge.svg)
+![Rust CI](https://github.com/hachimamma/Passlock/actions/workflows/rust-ci.yml/badge.svg)
+![C CI](https://github.com/hachimamma/Passlock/actions/workflows/c-ci.yml/badge.svg)
+![Go CI](https://github.com/hachimamma/Passlock/actions/workflows/go-ci.yml/badge.svg)
+![Integration](https://github.com/hachimamma/Passlock/actions/workflows/integration.yml/badge.svg)
 
 PASSLOCK is actively evolving and intended as:
 
