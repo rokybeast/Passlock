@@ -106,21 +106,18 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.23'
+        go-version: '1.25'
 
-    - name: Initialize Go module if needed
+    - name: Install latest golangci-lint from source
       run: |
-        if [ ! -f go.mod ] && [ -f api_server.go ]; then
-          go mod init passlock-server
-          go mod tidy
-        fi
+        # Install the absolute latest which should support Go 1.25
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@master
+        golangci-lint --version
 
-    - name: Run golangci-lint (simplified)
+    - name: Run golangci-lint
       run: |
         if [ -f api_server.go ]; then
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.0
-          
-          golangci-lint run --timeout=5m --disable-all --enable=gofmt,govet api_server.go
+          golangci-lint run --timeout=5m api_server.go
         else
           echo "No Go files found, skipping"
         fi
