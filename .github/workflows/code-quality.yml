@@ -12,20 +12,26 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
+
     - name: Install libsodium
       run: |
         sudo apt-get update
         sudo apt-get install -y libsodium-dev
+
     - name: Check Rust formatting
       run: cargo fmt --all -- --check
+
     - name: Run Clippy (warnings as errors)
       run: cargo clippy --all-targets --all-features -- -D warnings
+
     - name: Run Clippy (pedantic)
       run: cargo clippy --all-targets --all-features -- -W clippy::pedantic || true
+
     - name: Check for unused dependencies
       run: |
         cargo install cargo-udeps || true
@@ -47,9 +53,9 @@ jobs:
     - name: Run cppcheck
       run: |
         if [ -d src/c ]; then
-          # Create a suppression file for library functions
           echo "unusedFunction:src/c/vault_engine.c" > cppcheck-suppressions.txt
           cppcheck --enable=all --suppress=missingIncludeSystem --suppressions-list=cppcheck-suppressions.txt src/c/
+          echo "cppcheck analysis completed"
         else
           echo "src/c not found"
         fi
@@ -58,6 +64,7 @@ jobs:
       run: |
         if [ -d src/c ]; then
           clang-tidy src/c/*.c -- -I src/c -I /usr/include -I /usr/local/include || true
+          echo "clang-tidy analysis completed"
         else
           echo "src/c not found"
         fi
@@ -69,25 +76,18 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
+
     - name: Install cargo-deny
       run: cargo install cargo-deny
-    - name: Create deny.toml if missing
-      run: |
-        if [ ! -f deny.toml ]; then
-          echo '[licenses]' > deny.toml
-          echo 'allow = [' >> deny.toml
-          echo '    "MIT",' >> deny.toml
-          echo '    "Apache-2.0",' >> deny.toml
-          echo '    "MPL-2.0",' >> deny.toml
-          echo '    "Zlib",' >> deny.toml
-          echo '    "BSD-3-Clause",' >> deny.toml
-          echo '    "WTFPL",' >> deny.toml
-          echo '    "Unicode-3.0",' >> deny.toml
-          echo ']' >> deny.toml
-        else
-          echo "deny.toml already exists, using existing config"
-        fi
+
     - name: Check licenses
-      run: cargo deny check licenses || true
+      run: |
+        if [ -f deny.toml ]; then
+          echo "Using existing deny.toml"
+          cargo deny check licenses || echo "License issues found (non-blocking)"
+        else
+          echo "No deny.toml found, skipping license check"
+        fi

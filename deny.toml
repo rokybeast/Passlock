@@ -1,3 +1,6 @@
+# Configuration for cargo-deny
+# See: https://embarkstudios.github.io/cargo-deny/
+
 [licenses]
 allow = [
     "MIT",
@@ -5,7 +8,25 @@ allow = [
     "MPL-2.0",
     "Zlib",
     "BSD-3-Clause",
+    "BSD-2-Clause",
+    "ISC",
     "WTFPL",
     "Unicode-3.0",
-    "(MIT OR Apache-2.0) AND Unicode-3.0",
+    "Unicode-DFS-2016",
 ]
+
+confidence-threshold = 0.8
+
+[licenses.private]
+ignore = false
+
+[licenses.unused-allowed-license]
+level = "warn"
+
+[bans]
+multiple-versions = "allow"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "allow"
+unknown-git = "allow"
