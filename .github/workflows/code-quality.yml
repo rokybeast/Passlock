@@ -77,7 +77,16 @@ jobs:
       run: |
         if [ ! -f deny.toml ]; then
           echo '[licenses]' > deny.toml
-          echo 'allow = ["MIT", "Apache-2.0"]' >> deny.toml
+          echo 'allow = [' >> deny.toml
+          echo '    "MIT",' >> deny.toml
+          echo '    "Apache-2.0",' >> deny.toml
+          echo '    "MPL-2.0",' >> deny.toml
+          echo '    "Zlib",' >> deny.toml
+          echo '    "BSD-3-Clause",' >> deny.toml
+          echo '    "WTFPL",' >> deny.toml
+          echo '    "Unicode-3.0",' >> deny.toml
+          echo '    "MIT OR Apache-2.0",' >> deny.toml
+          echo ']' >> deny.toml
         else
           echo "deny.toml already exists, using existing config"
         fi
