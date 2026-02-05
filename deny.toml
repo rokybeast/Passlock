@@ -1,0 +1,4 @@
+# deny.toml
+[licenses]
+default = "deny"
+allow = ["MIT", "Apache-2.0"]
