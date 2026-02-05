@@ -1,11 +1,9 @@
 name: Go CI
-
 on:
   push:
     branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
-
 jobs:
   go-build-test:
     name: Go Build & Test
@@ -14,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go-version: ['1.21', '1.22', '1.23']
+        go-version: ['1.23', '1.24', '1.25']
     
     steps:
     - name: Checkout code
@@ -73,6 +71,7 @@ jobs:
       run: |
         if [ -f api_server.go ]; then
           go build -v -o passlock-server api_server.go
+          echo "Go server built successfully"
         else
           echo "api_server.go not found, skipping build"
         fi
@@ -91,8 +90,10 @@ jobs:
         fi
 
     - name: Check for Go vulnerabilities
+      if: matrix.go-version == '1.25'
       run: |
+        echo "Running govulncheck with Go ${{ matrix.go-version }}"
         go install golang.org/x/vuln/cmd/govulncheck@latest
-        govulncheck ./... || true
+        govulncheck ./... || echo "Vulnerabilities found or check failed"
 
-# to hell with go lint, fuck that shit
+# Fuck go lint, that shit is annoying
