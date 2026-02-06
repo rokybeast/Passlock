@@ -19,7 +19,9 @@ pub fn cleanup() {
 }
 
 pub fn gen_salt() -> String {
-    if let Ok(salt_bytes) = vault_ffi::generate_salt() { hex::encode(salt_bytes) } else {
+    if let Ok(salt_bytes) = vault_ffi::generate_salt() {
+        hex::encode(salt_bytes)
+    } else {
         let mut rng = rand::thread_rng();
         let salt_bytes: Vec<u8> = (0..vault_ffi::SALT_LENGTH).map(|_| rng.gen()).collect();
         hex::encode(salt_bytes)

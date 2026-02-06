@@ -11,7 +11,8 @@ use std::env;
 ///
 /// # Panics
 /// Panics if the system time is before `UNIX_EPOCH`.
-#[must_use] pub fn generate_uuid() -> String {
+#[must_use]
+pub fn generate_uuid() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -24,7 +25,8 @@ use std::env;
 ///
 /// # Panics
 /// Panics if the system time is before `UNIX_EPOCH`.
-#[must_use] pub fn get_timestamp() -> u64 {
+#[must_use]
+pub fn get_timestamp() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
