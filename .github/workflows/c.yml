@@ -112,8 +112,16 @@ jobs:
       run: |
         if [ -d src/c ]; then
           sudo apt-get install -y cppcheck
-          cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem src/c/ || true
-          echo "Static analysis completed"
+          if [ -f cppcheck-suppressions.txt ]; then
+            cppcheck --enable=all \
+                     --suppress=missingIncludeSystem \
+                     --suppressions-list=cppcheck-suppressions.txt \
+                     --error-exitcode=1 \
+                     src/c/
+          else
+            cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 src/c/
+          fi
+          echo "Static analysis passed"
         else
           echo "src/c not found, skipping cppcheck"
         fi

@@ -50,14 +50,23 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y cppcheck clang-tidy libsodium-dev
 
-    - name: Run cppcheck
+    - name: Static analysis (cppcheck)
+      if: runner.os == 'Linux'
       run: |
         if [ -d src/c ]; then
-          echo "unusedFunction:src/c/vault_engine.c" > cppcheck-suppressions.txt
-          cppcheck --enable=all --suppress=missingIncludeSystem --suppressions-list=cppcheck-suppressions.txt src/c/
-          echo "cppcheck analysis completed"
+          sudo apt-get install -y cppcheck
+          if [ -f cppcheck-suppressions.txt ]; then
+            cppcheck --enable=all \
+                     --suppress=missingIncludeSystem \
+                     --suppressions-list=cppcheck-suppressions.txt \
+                     --error-exitcode=1 \
+                     src/c/
+          else
+            cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 src/c/
+          fi
+          echo "Static analysis passed"
         else
-          echo "src/c not found"
+          echo "src/c not found, skipping cppcheck"
         fi
 
     - name: Run clang-tidy
