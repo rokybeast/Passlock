@@ -188,7 +188,7 @@ impl App {
         let salt = crypto::gen_salt();
         let vault = Vault::new(salt);
         match storage::svv(&vault, &self.input_buffer) {
-            Ok(_) => {
+            Ok(()) => {
                 self.master_pwd = self.input_buffer.clone();
                 self.vault = Some(vault);
                 self.screen = Screen::MainMenu;
@@ -755,10 +755,10 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         let tag_count = app.all_tags.len();
         let disp_count = app.entry_disp.len();
         let total_count = vault.e.len();
-        let filter_indicator = if disp_count != total_count {
-            format!(" (Filtered: {disp_count})")
-        } else {
+        let filter_indicator = if disp_count == total_count {
             String::new()
+        } else {
+            format!(" (Filtered: {disp_count})")
         };
         vec![
             Line::from(vec![Span::styled(
@@ -1029,7 +1029,12 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                         ),
                     ]));
                 }
-                if !entry.tags.is_empty() {
+                if entry.tags.is_empty() {
+                    lines.push(Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled("└─", Style::default().fg(GruvboxColors::gray())),
+                    ]));
+                } else {
                     lines.push(Line::from(vec![
                         Span::raw("     "),
                         Span::styled("└─ Tags: ", Style::default().fg(GruvboxColors::gray())),
@@ -1037,11 +1042,6 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                             entry.tags.join(", "),
                             Style::default().fg(GruvboxColors::orange()),
                         ),
-                    ]));
-                } else {
-                    lines.push(Line::from(vec![
-                        Span::raw("     "),
-                        Span::styled("└─", Style::default().fg(GruvboxColors::gray())),
                     ]));
                 }
                 lines.push(Line::from(""));
@@ -1677,7 +1677,7 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
     // Use entry_disp for deletion when filtered
     let empty_vec = Vec::new();
     let entries_to_display = if app.entry_disp.is_empty() {
-        app.vault.as_ref().map(|v| &v.e).unwrap_or(&empty_vec)
+        app.vault.as_ref().map_or(&empty_vec, |v| &v.e)
     } else {
         &app.entry_disp
     };
@@ -1908,18 +1908,18 @@ fn handle_vpi(app: &mut App, key: KeyCode) {
                 app.selected_entry += 1;
             }
         }
-        KeyCode::Char('e') | KeyCode::Char('E') => {
+        KeyCode::Char('e' | 'E') => {
             if app.selected_entry < app.entry_disp.len() {
                 let entry_id = app.entry_disp[app.selected_entry].id.clone();
                 app.load_efe(entry_id);
             }
         }
-        KeyCode::Char('h') | KeyCode::Char('H') => {
+        KeyCode::Char('h' | 'H') => {
             if app.selected_entry < app.entry_disp.len() {
                 app.screen = Screen::ViewHistory;
             }
         }
-        KeyCode::Char('f') | KeyCode::Char('F') => {
+        KeyCode::Char('f' | 'F') => {
             // Clear all filters
             app.active_tf = None;
             app.search_query.clear();
@@ -2163,7 +2163,7 @@ fn handle_tfi(app: &mut App, key: KeyCode) {
                 app.set_msg(&format!("Filtered by tag: {tag}"), MessageType::Success);
             }
         }
-        KeyCode::Char('v') | KeyCode::Char('V') => {
+        KeyCode::Char('v' | 'V') => {
             if !app.entry_disp.is_empty() {
                 app.selected_entry = 0;
                 app.screen = Screen::ViewPasswords;
