@@ -7,6 +7,10 @@ mod vault_ffi;
 use models::Vault;
 use std::env;
 
+/// Generates a UUID string.
+///
+/// # Panics
+/// Panics if the system time is before `UNIX_EPOCH`.
 #[must_use] pub fn generate_uuid() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let now = SystemTime::now()
@@ -16,6 +20,10 @@ use std::env;
     format!("{now}")
 }
 
+/// Gets the current timestamp.
+///
+/// # Panics
+/// Panics if the system time is before `UNIX_EPOCH`.
 #[must_use] pub fn get_timestamp() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now()
