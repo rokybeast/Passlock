@@ -44,10 +44,19 @@ jobs:
       - name: Build
         run: go build -v -o passlock-server api_server.go
 
-      - name: Test startup
+      - name: Test startup (Linux)
+        if: runner.os == 'Linux'
         run: |
           timeout 5s ./passlock-server || code=$?
           [ "$code" = "124" ]
+
+      - name: Test startup (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ./passlock-server &
+          PID=$!
+          sleep 5
+          kill $PID
 
       - name: Vulnerability scan (stdlib CVE acknowledged)
         if: matrix.go-version == '1.25'
