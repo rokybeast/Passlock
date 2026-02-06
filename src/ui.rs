@@ -188,7 +188,7 @@ impl App {
         let salt = crypto::gen_salt();
         let vault = Vault::new(salt);
         match storage::svv(&vault, &self.input_buffer) {
-            Ok(_) => {
+            Ok(()) => {
                 self.master_pwd = self.input_buffer.clone();
                 self.vault = Some(vault);
                 self.screen = Screen::MainMenu;
@@ -296,9 +296,9 @@ impl App {
                         changed_at: now,
                     });
                 }
-                entry.n = self.n_entry_name.clone();
-                entry.u = self.n_entry_user.clone();
-                entry.p = self.n_entry_pass.clone();
+                entry.n.clone_from(&self.n_entry_name);
+                entry.u.clone_from(&self.n_entry_user);
+                entry.p.clone_from(&self.n_entry_pass);
                 entry.url = if self.n_entry_url.is_empty() {
                     None
                 } else {
@@ -309,7 +309,7 @@ impl App {
                 } else {
                     Some(self.n_entry_notes.clone())
                 };
-                entry.tags = self.n_entry_tags.clone();
+                entry.tags.clone_from(&self.n_entry_tags);
                 entry.last_modified = now;
 
                 if let Err(e) = storage::svv(vault, &self.master_pwd) {
@@ -328,7 +328,7 @@ impl App {
         }
     }
 
-    fn load_efe(&mut self, entry_id: String) {
+    fn load_efe(&mut self, entry_id: &str) {
         if let Some(ref vault) = self.vault {
             if let Some(entry) = vault.e.iter().find(|e| e.id == entry_id) {
                 self.edit_eid = entry.id.clone();
@@ -416,8 +416,8 @@ impl App {
 
     fn add_tag(&mut self) {
         let tag = self.tag_input.trim().to_lowercase();
-        if !tag.is_empty() && !self.n_entry_tags.contains(&tag.to_string()) {
-            self.n_entry_tags.push(tag.to_string());
+        if !tag.is_empty() && !self.n_entry_tags.contains(&tag.clone()) {
+            self.n_entry_tags.push(tag.clone());
             self.tag_input.clear();
         }
     }
@@ -442,7 +442,7 @@ impl App {
     }
 
     fn filter_bt(&mut self, tag: Option<String>) {
-        self.active_tf = tag.clone();
+        self.active_tf.clone_from(&tag);
         if let Some(ref vault) = self.vault {
             if let Some(filter_tag) = tag {
                 self.entry_disp = vault
@@ -457,7 +457,7 @@ impl App {
         }
     }
 
-    fn get_ta(&self, timestamp: u64) -> String {
+    fn get_ta(timestamp: u64) -> String {
         let now = crate::get_timestamp();
         let diff = now.saturating_sub(timestamp);
         let days = diff / 86400;
@@ -591,6 +591,7 @@ fn draw_loading(f: &mut Frame, size: Rect) {
     f.render_widget(text, area);
 }
 
+#[allow(clippy::cast_sign_loss)]
 fn draw_create_vault(f: &mut Frame, size: Rect, app: &App) {
     let area = centered_rect(65, 70, size);
     let chunks = Layout::default()
@@ -737,6 +738,7 @@ fn draw_unlock_vault(f: &mut Frame, size: Rect, app: &App) {
     f.render_widget(help, chunks[4]);
 }
 
+#[allow(clippy::too_many_lines)]
 fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -755,10 +757,10 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
         let tag_count = app.all_tags.len();
         let disp_count = app.entry_disp.len();
         let total_count = vault.e.len();
-        let filter_indicator = if disp_count != total_count {
-            format!(" (Filtered: {disp_count})")
-        } else {
+        let filter_indicator = if disp_count == total_count {
             String::new()
+        } else {
+            format!(" (Filtered: {disp_count})")
         };
         vec![
             Line::from(vec![Span::styled(
@@ -925,6 +927,7 @@ fn draw_main_menu(f: &mut Frame, size: Rect, app: &App) {
     f.render_widget(help, main_layout[2]);
 }
 
+#[allow(clippy::too_many_lines)]
 fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -979,7 +982,7 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
             .map(|(i, entry)| {
                 let is_selected = i == app.selected_entry;
                 let prefix = if is_selected { "▶ " } else { "  " };
-                let time_ago = app.get_ta(entry.last_modified);
+                let time_ago = App::get_ta(entry.last_modified);
                 let mut lines = vec![
                     Line::from(vec![
                         Span::styled(prefix, Style::default().fg(GruvboxColors::yellow())),
@@ -1029,7 +1032,12 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                         ),
                     ]));
                 }
-                if !entry.tags.is_empty() {
+                if entry.tags.is_empty() {
+                    lines.push(Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled("└─", Style::default().fg(GruvboxColors::gray())),
+                    ]));
+                } else {
                     lines.push(Line::from(vec![
                         Span::raw("     "),
                         Span::styled("└─ Tags: ", Style::default().fg(GruvboxColors::gray())),
@@ -1037,11 +1045,6 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
                             entry.tags.join(", "),
                             Style::default().fg(GruvboxColors::orange()),
                         ),
-                    ]));
-                } else {
-                    lines.push(Line::from(vec![
-                        Span::raw("     "),
-                        Span::styled("└─", Style::default().fg(GruvboxColors::gray())),
                     ]));
                 }
                 lines.push(Line::from(""));
@@ -1057,6 +1060,8 @@ fn draw_view_pwds(f: &mut Frame, size: Rect, app: &App) {
     f.render_widget(help, chunks[2]);
 }
 
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::cast_sign_loss)]
 fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     let area = centered_rect(80, 85, size);
     let chunks = Layout::default()
@@ -1205,6 +1210,8 @@ fn draw_add_pwd(f: &mut Frame, size: Rect, app: &App) {
     f.render_widget(help, chunks[12]);
 }
 
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::cast_sign_loss)]
 fn draw_edit_pwd(f: &mut Frame, size: Rect, app: &App) {
     let area = centered_rect(80, 85, size);
     let chunks = Layout::default()
@@ -1391,7 +1398,7 @@ fn draw_history(f: &mut Frame, size: Rect, app: &App) {
                         .rev()
                         .enumerate()
                         .map(|(i, hist)| {
-                            let time_ago = app.get_ta(hist.changed_at);
+                            let time_ago = App::get_ta(hist.changed_at);
                             let lines = vec![
                                 Line::from(vec![
                                     Span::styled(
@@ -1677,7 +1684,7 @@ fn draw_del_pwd(f: &mut Frame, size: Rect, app: &App) {
     // Use entry_disp for deletion when filtered
     let empty_vec = Vec::new();
     let entries_to_display = if app.entry_disp.is_empty() {
-        app.vault.as_ref().map(|v| &v.e).unwrap_or(&empty_vec)
+        app.vault.as_ref().map_or(&empty_vec, |v| &v.e)
     } else {
         &app.entry_disp
     };
@@ -1767,6 +1774,7 @@ fn handle_uvi(app: &mut App, key: KeyCode) {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
     match key {
         KeyCode::Up => {
@@ -1804,7 +1812,6 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
         KeyCode::Char('1') => {
             app.screen = Screen::ViewPasswords;
             app.msg.clear();
-            // Reset any active filters
             app.active_tf = None;
             app.search_query.clear();
             if let Some(ref vault) = app.vault {
@@ -1838,14 +1845,13 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
             app.screen = Screen::DeletePassword;
             app.input_buffer.clear();
             app.msg.clear();
-            // Use filtered entries for deletion if filter is active
             if app.entry_disp.is_empty() {
                 if let Some(ref vault) = app.vault {
                     app.entry_disp = vault.e.clone();
                 }
             }
         }
-        KeyCode::Char('7') => return true,
+        KeyCode::Char('7') | KeyCode::Esc => return true,
         KeyCode::Enter => {
             app.msg.clear();
             match app.selected_menu {
@@ -1890,7 +1896,6 @@ fn handle_mmi(app: &mut App, key: KeyCode) -> bool {
                 _ => {}
             }
         }
-        KeyCode::Esc => return true,
         _ => {}
     }
     false
@@ -1908,18 +1913,18 @@ fn handle_vpi(app: &mut App, key: KeyCode) {
                 app.selected_entry += 1;
             }
         }
-        KeyCode::Char('e') | KeyCode::Char('E') => {
+        KeyCode::Char('e' | 'E') => {
             if app.selected_entry < app.entry_disp.len() {
                 let entry_id = app.entry_disp[app.selected_entry].id.clone();
-                app.load_efe(entry_id);
+                app.load_efe(&entry_id);
             }
         }
-        KeyCode::Char('h') | KeyCode::Char('H') => {
+        KeyCode::Char('h' | 'H') => {
             if app.selected_entry < app.entry_disp.len() {
                 app.screen = Screen::ViewHistory;
             }
         }
-        KeyCode::Char('f') | KeyCode::Char('F') => {
+        KeyCode::Char('f' | 'F') => {
             // Clear all filters
             app.active_tf = None;
             app.search_query.clear();
@@ -2163,7 +2168,7 @@ fn handle_tfi(app: &mut App, key: KeyCode) {
                 app.set_msg(&format!("Filtered by tag: {tag}"), MessageType::Success);
             }
         }
-        KeyCode::Char('v') | KeyCode::Char('V') => {
+        KeyCode::Char('v' | 'V') => {
             if !app.entry_disp.is_empty() {
                 app.selected_entry = 0;
                 app.screen = Screen::ViewPasswords;

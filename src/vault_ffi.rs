@@ -86,8 +86,8 @@ pub fn encrypt_data(plaintext: &[u8], password: &str, salt: &[u8]) -> Result<Vec
             password_cstr.as_ptr(),
             password.len(),
             salt.as_ptr(),
-            &mut ciphertext_ptr,
-            &mut ciphertext_len,
+            &raw mut ciphertext_ptr,
+            &raw mut ciphertext_len,
         );
 
         if result == VAULT_SUCCESS {
@@ -124,8 +124,8 @@ pub fn decrypt_data(ciphertext: &[u8], password: &str, salt: &[u8]) -> Result<Ve
             password_cstr.as_ptr(),
             password.len(),
             salt.as_ptr(),
-            &mut plaintext_ptr,
-            &mut plaintext_len,
+            &raw mut plaintext_ptr,
+            &raw mut plaintext_len,
         );
 
         if result == VAULT_SUCCESS {

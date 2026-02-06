@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+__attribute__((used))
 int vault_init(void) {
     if (sodium_init() < 0) {
         return VAULT_ERROR;
@@ -10,13 +11,16 @@ int vault_init(void) {
     return VAULT_SUCCESS;
 }
 
+__attribute__((used))
 void vault_cleanup(void) {
 }
 
+__attribute__((used))
 void vault_secure_zero(void *ptr, size_t len) {
     sodium_memzero(ptr, len);
 }
 
+__attribute__((used))
 int vault_gen_salt(unsigned char *salt, size_t salt_len) {
     if (!salt || salt_len == 0) {
         return VAULT_ERROR;
@@ -25,6 +29,7 @@ int vault_gen_salt(unsigned char *salt, size_t salt_len) {
     return VAULT_SUCCESS;
 }
 
+__attribute__((used))
 int vault_derive_key(
     const char *password,
     size_t password_len,
@@ -51,6 +56,24 @@ int vault_derive_key(
     return VAULT_SUCCESS;
 }
 
+__attribute__((used))
+void *vault_memcpy(void *dest, const void *src, size_t n) {
+    if (dest == NULL || src == NULL || n == 0) {
+        return dest;
+    }
+    
+    // updated for byte check
+    unsigned char *d = (unsigned char *)dest;
+    const unsigned char *s = (const unsigned char *)src;
+    
+    for (size_t i = 0; i < n; i++) {
+        d[i] = s[i];
+    }
+    
+    return dest;
+}
+
+__attribute__((used))
 int vault_encrypt(
     const unsigned char *plaintext,
     size_t plaintext_len,
@@ -81,7 +104,16 @@ int vault_encrypt(
         return VAULT_ERROR_MEMORY;
     }
 
-    memcpy(ciphertext, nonce, NONCE_LENGTH);
+    // safe mem copy with bounds checks
+    if (ciphertext_len >= NONCE_LENGTH) {
+        vault_memcpy(ciphertext, nonce, NONCE_LENGTH);
+    } else {
+        // shouldnt happen, but sanity and safety
+        free(ciphertext);
+        vault_secure_zero(key, KEY_LENGTH);
+        vault_secure_zero(nonce, NONCE_LENGTH);
+        return VAULT_ERROR;
+    }
 
     unsigned long long actual_ciphertext_len;
     if (crypto_aead_aes256gcm_encrypt(
@@ -97,6 +129,7 @@ int vault_encrypt(
         ) != 0) {
         free(ciphertext);
         vault_secure_zero(key, KEY_LENGTH);
+        vault_secure_zero(nonce, NONCE_LENGTH);
         return VAULT_ERROR_CRYPTO;
     }
 
@@ -109,6 +142,7 @@ int vault_encrypt(
     return VAULT_SUCCESS;
 }
 
+__attribute__((used))
 int vault_decrypt(
     const unsigned char *ciphertext,
     size_t ciphertext_len,
@@ -169,6 +203,7 @@ int vault_decrypt(
     return VAULT_SUCCESS;
 }
 
+__attribute__((used))
 void vault_free_buffer(unsigned char *buf) {
     if (buf) {
         free(buf);

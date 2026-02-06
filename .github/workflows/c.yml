@@ -112,8 +112,13 @@ jobs:
       run: |
         if [ -d src/c ]; then
           sudo apt-get install -y cppcheck
-          cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem src/c/ || true
-          echo "Static analysis completed"
+          # Run cppcheck with suppression for unusedFunction in vault_engine.c
+          cppcheck --enable=all \
+                   --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction:src/c/vault_engine.c \
+                   --error-exitcode=1 \
+                   src/c/
+          echo "Static analysis passed"
         else
           echo "src/c not found, skipping cppcheck"
         fi
