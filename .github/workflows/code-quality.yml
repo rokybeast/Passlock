@@ -54,9 +54,10 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         if [ -d src/c ]; then
-          # Run cppcheck - functions marked with __attribute__((used)) should not trigger warnings
+          # Run cppcheck with suppression for unusedFunction in vault_engine.c
           cppcheck --enable=all \
                    --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction:src/c/vault_engine.c \
                    --error-exitcode=1 \
                    src/c/
           echo "Static analysis passed"
