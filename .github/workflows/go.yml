@@ -1,99 +1,54 @@
 name: Go CI
+
 on:
   push:
     branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
+
 jobs:
   go-build-test:
     name: Go Build & Test
     runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         go-version: ['1.23', '1.24', '1.25']
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+      - name: Check formatting
+        run: |
+          gofmt -l api_server.go
+          test -z "$(gofmt -l api_server.go)"
 
-    - name: Download dependencies
-      run: |
-        go mod init passlock-server 2>/dev/null || true
-        go mod tidy 2>/dev/null || true
+      - name: Run go vet
+        run: go vet .
 
-    - name: Check formatting
-      run: |
-        if [ -f api_server.go ]; then
-          if [ "$(gofmt -l api_server.go | wc -l)" -gt 0 ]; then
-            echo "Go files are not formatted. Run 'gofmt -w api_server.go'"
-            gofmt -l api_server.go
-            exit 1
-          fi
-        else
-          echo "api_server.go not found, skipping format check"
-        fi
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
 
-    - name: Run go vet
-      run: |
-        if [ -f api_server.go ]; then
-          go vet ./api_server.go
-        else
-          echo "api_server.go not found, skipping vet"
-        fi
+      - name: Run staticcheck
+        run: staticcheck .
 
-    - name: Install staticcheck
-      run: go install honnef.co/go/tools/cmd/staticcheck@latest
+      - name: Build
+        run: go build -v -o passlock-server api_server.go
 
-    - name: Run staticcheck
-      run: |
-        if [ -f api_server.go ]; then
-          staticcheck ./api_server.go
-        else
-          echo "api_server.go not found, skipping staticcheck"
-        fi
+      - name: Test startup
+        run: |
+          timeout 5s ./passlock-server || code=$?
+          [ "$code" = "124" ]
 
-    - name: Build Go server
-      run: |
-        if [ -f api_server.go ]; then
-          go build -v -o passlock-server api_server.go
-          echo "Go server built successfully"
-        else
-          echo "api_server.go not found, skipping build"
-        fi
-
-    - name: Test Go server startup
-      run: |
-        if [ -f passlock-server ]; then
-          timeout 5s ./passlock-server || exit_code=$?
-          if [ $exit_code -eq 124 ]; then
-            echo "Server started successfully (timed out as expected)"
-          else
-            echo "Server exited with code $exit_code"
-          fi
-        else
-          echo "passlock-server binary not found, skipping startup test"
-        fi
-
-    - name: Check for Go vulnerabilities
-      if: matrix.go-version == '1.25'
-      run: |
-        echo "Running govulncheck with Go ${{ matrix.go-version }}"
-        go install golang.org/x/vuln/cmd/govulncheck@latest
-        govulncheck ./... || echo "Vulnerabilities found or check failed"
-
-# Fuck go lint, that shit is annoying
+      - name: Vulnerability scan
+        if: matrix.go-version == '1.25'
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck .
