@@ -112,15 +112,11 @@ jobs:
       run: |
         if [ -d src/c ]; then
           sudo apt-get install -y cppcheck
-          if [ -f cppcheck-suppressions.txt ]; then
-            cppcheck --enable=all \
-                     --suppress=missingIncludeSystem \
-                     --suppressions-list=cppcheck-suppressions.txt \
-                     --error-exitcode=1 \
-                     src/c/
-          else
-            cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 src/c/
-          fi
+          # Run cppcheck - functions marked with __attribute__((used)) should not trigger warnings
+          cppcheck --enable=all \
+                   --suppress=missingIncludeSystem \
+                   --error-exitcode=1 \
+                   src/c/
           echo "Static analysis passed"
         else
           echo "src/c not found, skipping cppcheck"
