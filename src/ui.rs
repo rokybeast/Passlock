@@ -416,8 +416,8 @@ impl App {
 
     fn add_tag(&mut self) {
         let tag = self.tag_input.trim().to_lowercase();
-        if !tag.is_empty() && !self.n_entry_tags.contains(&tag.to_string()) {
-            self.n_entry_tags.push(tag.to_string());
+        if !tag.is_empty() && !self.n_entry_tags.contains(&tag.clone()) {
+            self.n_entry_tags.push(tag.clone());
             self.tag_input.clear();
         }
     }
