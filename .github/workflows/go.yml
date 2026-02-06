@@ -35,8 +35,8 @@ jobs:
 
       - name: Install staticcheck
         run: |
-          GOTOOLCHAIN=go${{ matrix.go-version }} \
-          go install honnef.co/go/tools/cmd/staticcheck@latest
+          TOOLCHAIN=$(go env GOVERSION | cut -d' ' -f1)
+          GOTOOLCHAIN=$TOOLCHAIN go install honnef.co/go/tools/cmd/staticcheck@latest
 
       - name: Run staticcheck
         run: staticcheck .
@@ -52,6 +52,6 @@ jobs:
       - name: Vulnerability scan
         if: matrix.go-version == '1.25'
         run: |
-          GOTOOLCHAIN=go${{ matrix.go-version }} \
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          TOOLCHAIN=$(go env GOVERSION | cut -d' ' -f1)
+          GOTOOLCHAIN=$TOOLCHAIN go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck .
