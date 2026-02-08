@@ -3,7 +3,6 @@ pub mod passwords;
 pub mod utility;
 pub mod vault;
 
-// Re-export commonly used functions
 pub use menu::draw_main_menu;
 pub use passwords::{draw_add_pwd, draw_del_pwd, draw_edit_pwd, draw_history, draw_view_pwds};
 pub use utility::{draw_filter_tags, draw_gen_pwd, draw_search_pwd};
