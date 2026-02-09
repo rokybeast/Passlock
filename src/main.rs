@@ -88,13 +88,13 @@ fn create_vault(password: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     storage::svv(&vault, password)?;
 
-    println!("Vault created successfully");
+    println!("[✔] Vault created successfully.");
     Ok(())
 }
 
 fn unlock_vault(password: &str) -> Result<(), Box<dyn std::error::Error>> {
     let _vault = storage::ld_vt(password)?;
-    println!("Vault unlocked successfully");
+    println!("[✔] Vault unlocked successfully.");
     Ok(())
 }
 
@@ -103,7 +103,7 @@ fn sync_vault(password: &str) -> Result<(), Box<dyn std::error::Error>> {
     let temp_path = home.join(".passlock.temp");
 
     if !temp_path.exists() {
-        return Err("No temp file to sync".into());
+        return Err("[X] No temp file to sync.".into());
     }
 
     let temp_data = std::fs::read_to_string(&temp_path)?;
@@ -111,6 +111,6 @@ fn sync_vault(password: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     storage::svv(&vault, password)?;
 
-    println!("Vault synced successfully");
+    println!("[✔] Vault synced successfully.");
     Ok(())
 }
